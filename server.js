@@ -1,4129 +1,3149 @@
-const express = require("express");
-const { Pool } = require("pg");
-const cookieParser = require("cookie-parser");
-const jwt = require("jsonwebtoken");
-const path = require("path");
-const webpush = require("web-push");
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="theme-color" content="#07152f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>AliScore</title>
 
-const app = express();
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#061329;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+body{min-height:100vh}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+a{text-decoration:none;color:inherit}
 
-app.set("trust proxy", 1);
-
-const PORT = process.env.PORT || 10000;
-const DATABASE_URL = process.env.DATABASE_URL;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!DATABASE_URL) {
-  console.error("ERROR: DATABASE_URL is missing");
-  process.exit(1);
+:root{
+ --bg:#061329;
+ --bg2:#0a1b38;
+ --card:#0d2345;
+ --card2:#102b52;
+ --line:rgba(255,255,255,.09);
+ --text:#fff;
+ --muted:#9fb0ca;
+ --blue:#2377ff;
+ --blue2:#1458d9;
+ --green:#20c878;
+ --red:#ff4d61;
+ --yellow:#ffc928;
 }
 
-if (!ADMIN_PASSWORD) {
-  console.error("ERROR: ADMIN_PASSWORD is missing");
-  process.exit(1);
+.app{
+ min-height:100vh;
+ background:
+ radial-gradient(circle at 20% 0%,rgba(35,119,255,.16),transparent 30%),
+ radial-gradient(circle at 100% 20%,rgba(29,92,220,.10),transparent 30%),
+ var(--bg);
 }
 
-if (!JWT_SECRET) {
-  console.error("ERROR: JWT_SECRET is missing");
-  process.exit(1);
+header{
+ position:sticky;
+ top:0;
+ z-index:1000;
+ background:rgba(6,19,41,.94);
+ backdrop-filter:blur(18px);
+ border-bottom:1px solid var(--line);
 }
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-app.use(cookieParser());
+.header-inner{
+ max-width:1250px;
+ margin:auto;
+ padding:13px 16px;
+ display:flex;
+ align-items:center;
+ gap:18px;
+}
 
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
+.logo{
+ display:flex;
+ align-items:center;
+ gap:10px;
+ font-size:23px;
+ font-weight:900;
+ white-space:nowrap;
+}
+
+.logo-ball{
+ width:38px;
+ height:38px;
+ border-radius:12px;
+ background:linear-gradient(135deg,#3285ff,#1452cf);
+ display:grid;
+ place-items:center;
+ box-shadow:0 8px 25px rgba(35,119,255,.3);
+}
+
+.logo-ball span{font-size:21px}
+
+.nav{
+ display:flex;
+ gap:6px;
+ overflow-x:auto;
+ scrollbar-width:none;
+ flex:1;
+}
+
+.nav::-webkit-scrollbar{display:none}
+
+.nav button{
+ border:0;
+ color:#aebdd3;
+ background:transparent;
+ padding:10px 12px;
+ border-radius:11px;
+ white-space:nowrap;
+ font-weight:700;
+}
+
+.nav button:hover,
+.nav button.active{
+ color:#fff;
+ background:rgba(35,119,255,.16);
+}
+
+.main{
+ max-width:1250px;
+ margin:auto;
+ padding:20px 16px 50px;
+}
+
+.page{display:none}
+.page.active{display:block}
+
+.page-title{
+ font-size:27px;
+ font-weight:900;
+ margin:5px 0 5px;
+}
+
+.page-subtitle{
+ color:var(--muted);
+ margin-bottom:20px;
+}
+
+.grid{
+ display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:16px;
+}
+
+.grid3{
+ display:grid;
+ grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:16px;
+}
+
+.card{
+ background:linear-gradient(145deg,rgba(16,43,82,.96),rgba(9,29,57,.96));
+ border:1px solid var(--line);
+ border-radius:18px;
+ padding:18px;
+ box-shadow:0 12px 35px rgba(0,0,0,.16);
+}
+
+.card h2,.card h3{
+ margin:0 0 13px;
+}
+
+.hero{
+ padding:24px;
+ border-radius:22px;
+ background:
+ linear-gradient(135deg,rgba(35,119,255,.25),rgba(10,35,70,.8)),
+ var(--card);
+ border:1px solid rgba(78,145,255,.2);
+ margin-bottom:18px;
+}
+
+.hero h1{
+ margin:0 0 8px;
+ font-size:32px;
+}
+
+.hero p{
+ margin:0;
+ color:#b6c6dd;
+}
+
+.stat-card{
+ padding:18px;
+ border-radius:17px;
+ background:var(--card);
+ border:1px solid var(--line);
+}
+
+.stat-number{
+ font-size:30px;
+ font-weight:900;
+ margin-top:5px;
+}
+
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+.btn{
+ border:0;
+ border-radius:11px;
+ padding:10px 14px;
+ color:#fff;
+ background:#17345f;
+ font-weight:800;
+}
+
+.btn:hover{filter:brightness(1.12)}
+
+.btn-primary{
+ background:linear-gradient(135deg,var(--blue),var(--blue2));
+}
+
+.btn-success{background:#126b48}
+.btn-danger{background:#8f2335}
+.btn-warning{background:#80620b}
+
+.btn-row{
+ display:flex;
+ flex-wrap:wrap;
+ gap:8px;
+ margin-top:12px;
+}
+
+input,select,textarea{
+ width:100%;
+ background:#071a35;
+ color:#fff;
+ border:1px solid rgba(255,255,255,.12);
+ border-radius:11px;
+ padding:11px 12px;
+ outline:none;
+}
+
+input:focus,select:focus,textarea:focus{
+ border-color:#3181ff;
+ box-shadow:0 0 0 3px rgba(49,129,255,.12);
+}
+
+label{
+ display:block;
+ color:#b9c8dc;
+ font-size:13px;
+ font-weight:700;
+ margin-bottom:6px;
+}
+
+.form-grid{
+ display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:12px;
+}
+
+.form-group{margin-bottom:12px}
+
+table{
+ width:100%;
+ border-collapse:collapse;
+}
+
+th,td{
+ padding:12px 9px;
+ border-bottom:1px solid var(--line);
+ text-align:left;
+}
+
+th{
+ color:#9fb0ca;
+ font-size:12px;
+ text-transform:uppercase;
+}
+
+tr:last-child td{border-bottom:0}
+
+.team-row{
+ display:flex;
+ align-items:center;
+ gap:12px;
+}
+
+.team-logo{
+ width:42px;
+ height:42px;
+ border-radius:12px;
+ background:#17345f;
+ display:grid;
+ place-items:center;
+ overflow:hidden;
+ flex-shrink:0;
+}
+
+.team-logo img{
+ width:100%;
+ height:100%;
+ object-fit:cover;
+}
+
+.avatar{
+ width:46px;
+ height:46px;
+ border-radius:50%;
+ background:#183962;
+ display:grid;
+ place-items:center;
+ overflow:hidden;
+ flex-shrink:0;
+}
+
+.avatar img{
+ width:100%;
+ height:100%;
+ object-fit:cover;
+}
+
+.player-card{
+ display:flex;
+ align-items:center;
+ gap:13px;
+}
+
+.player-name{
+ font-weight:850;
+}
+
+.player-meta{
+ font-size:12px;
+ color:var(--muted);
+ margin-top:3px;
+}
+
+.match-card{
+ background:linear-gradient(145deg,#0e284e,#091d39);
+ border:1px solid var(--line);
+ border-radius:18px;
+ padding:17px;
+}
+
+.match-top{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ color:var(--muted);
+ font-size:12px;
+ margin-bottom:15px;
+}
+
+.match-teams{
+ display:grid;
+ grid-template-columns:1fr auto 1fr;
+ align-items:center;
+ gap:10px;
+}
+
+.match-team{
+ display:flex;
+ flex-direction:column;
+ align-items:center;
+ gap:7px;
+ text-align:center;
+ font-weight:800;
+}
+
+.score{
+ font-size:27px;
+ font-weight:950;
+ white-space:nowrap;
+}
+
+.status{
+ display:inline-flex;
+ padding:5px 9px;
+ border-radius:99px;
+ font-size:11px;
+ font-weight:900;
+}
+
+.status-live{
+ color:#fff;
+ background:#a32134;
+}
+
+.status-finished{
+ color:#a9f1cd;
+ background:#114e39;
+}
+
+.status-scheduled{
+ color:#bcd5ff;
+ background:#173a72;
+}
+
+.event{
+ display:flex;
+ align-items:center;
+ gap:10px;
+ padding:11px 0;
+ border-bottom:1px solid var(--line);
+}
+
+.event:last-child{border-bottom:0}
+
+.event-icon{
+ width:32px;
+ height:32px;
+ border-radius:9px;
+ display:grid;
+ place-items:center;
+ background:#17345f;
+}
+
+.badge{
+ display:inline-flex;
+ align-items:center;
+ gap:5px;
+ border-radius:99px;
+ padding:5px 9px;
+ background:#17345f;
+ color:#c8d7eb;
+ font-size:11px;
+ font-weight:800;
+}
+
+.yellow{
+ width:12px;
+ height:16px;
+ border-radius:2px;
+ background:#ffd52d;
+ display:inline-block;
+}
+
+.red{
+ width:12px;
+ height:16px;
+ border-radius:2px;
+ background:#ff4057;
+ display:inline-block;
+}
+
+.empty{
+ text-align:center;
+ padding:35px 15px;
+ color:#8fa2bc;
+}
+
+.admin-box{
+ max-width:600px;
+ margin:20px auto;
+}
+
+.admin-header{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:10px;
+ margin-bottom:16px;
+}
+
+.hidden{display:none!important}
+
+.loading{
+ text-align:center;
+ padding:30px;
+ color:#9fb0ca;
+}
+
+.toast{
+ position:fixed;
+ left:50%;
+ bottom:22px;
+ transform:translateX(-50%) translateY(30px);
+ background:#122c52;
+ border:1px solid rgba(255,255,255,.12);
+ padding:12px 17px;
+ border-radius:13px;
+ box-shadow:0 15px 35px rgba(0,0,0,.35);
+ opacity:0;
+ pointer-events:none;
+ transition:.25s;
+ z-index:5000;
+}
+
+.toast.show{
+ opacity:1;
+ transform:translateX(-50%) translateY(0);
+}
+
+.modal{
+ position:fixed;
+ inset:0;
+ z-index:3000;
+ display:none;
+ align-items:center;
+ justify-content:center;
+ padding:15px;
+ background:rgba(0,0,0,.7);
+ backdrop-filter:blur(7px);
+}
+
+.modal.show{display:flex}
+
+.modal-box{
+ width:min(620px,100%);
+ max-height:90vh;
+ overflow:auto;
+ background:#0a1e3a;
+ border:1px solid var(--line);
+ border-radius:20px;
+ padding:20px;
+}
+
+.modal-head{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:10px;
+ margin-bottom:15px;
+}
+
+.close{
+ border:0;
+ width:35px;
+ height:35px;
+ border-radius:10px;
+ background:#18365f;
+ color:#fff;
+ font-size:20px;
+}
+
+.login-screen{
+ min-height:100vh;
+ display:none;
+ align-items:center;
+ justify-content:center;
+ padding:20px;
+ background:
+ radial-gradient(circle at 50% 0%,rgba(35,119,255,.2),transparent 35%),
+ #061329;
+}
+
+.login-screen.show{display:flex}
+
+.login-box{
+ width:min(420px,100%);
+ padding:28px;
+ border-radius:24px;
+ background:rgba(12,34,67,.96);
+ border:1px solid rgba(255,255,255,.1);
+ box-shadow:0 30px 80px rgba(0,0,0,.4);
+ animation:loginIn .4s ease;
+}
+
+@keyframes loginIn{
+ from{opacity:0;transform:translateY(18px) scale(.98)}
+ to{opacity:1;transform:none}
+}
+
+.login-logo{
+ text-align:center;
+ margin-bottom:24px;
+}
+
+.login-logo .logo-ball{
+ margin:0 auto 10px;
+ width:58px;
+ height:58px;
+}
+
+.login-logo h1{
+ margin:0;
+ font-size:28px;
+}
+
+footer{
+ text-align:center;
+ padding:25px;
+ color:#647b9c;
+ font-size:12px;
+}
+
+@media(max-width:850px){
+ .grid3{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .header-inner{display:block}
+ .logo{margin-bottom:10px}
+ .nav{padding-bottom:2px}
+}
+
+@media(max-width:620px){
+ .main{padding:14px 11px 40px}
+ .grid,.grid3,.form-grid{grid-template-columns:1fr}
+ .hero h1{font-size:26px}
+ .page-title{font-size:23px}
+ .card{padding:14px}
+ th,td{padding:9px 5px;font-size:13px}
+ .score{font-size:23px}
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<header>
+ <div class="header-inner">
+  <div class="logo">
+   <div class="logo-ball"><span>⚽</span></div>
+   <span>AliScore</span>
+  </div>
+
+  <nav class="nav" id="mainNav">
+   <button data-page="home">Ana səhifə</button>
+   <button data-page="matches">Matçlar</button>
+   <button data-page="table">Turnir cədvəli</button>
+   <button data-page="teams">Komandalar</button>
+   <button data-page="players">Oyunçular</button>
+   <button data-page="lineups">Heyətlər</button>
+   <button data-page="stats">Statistika</button>
+   <button data-page="cards">Kartlar</button>
+   <button data-page="week">⭐ Komanda həftəsi</button>
+   <button data-page="highlights">✨ Highlights</button>
+   <button data-page="transfers">Transferlər</button>
+   <button data-page="admin">İdarəetmə</button>
+  </nav>
+ </div>
+</header>
+
+<main class="main">
+
+<section id="page-home" class="page active">
+ <div class="hero">
+  <h1>AliScore ⚽</h1>
+  <p>Futbolun bütün nəticələri, statistika və hadisələri bir yerdə.</p>
+ </div>
+
+ <div class="grid3">
+  <div class="stat-card">
+   <div class="muted">Komandalar</div>
+   <div class="stat-number" id="homeTeams">0</div>
+  </div>
+  <div class="stat-card">
+   <div class="muted">Oyunçular</div>
+   <div class="stat-number" id="homePlayers">0</div>
+  </div>
+  <div class="stat-card">
+   <div class="muted">Matçlar</div>
+   <div class="stat-number" id="homeMatches">0</div>
+  </div>
+ </div>
+
+ <div class="grid" style="margin-top:16px">
+  <div class="card">
+   <h2>📅 Bugünkü matçlar</h2>
+   <div id="homeToday">Yüklənir...</div>
+  </div>
+
+  <div class="card">
+   <h2>🏆 Son nəticələr</h2>
+   <div id="homeResults">Yüklənir...</div>
+  </div>
+ </div>
+
+ <div class="card" style="margin-top:16px">
+  <h2>⭐ Komanda həftəsi</h2>
+  <div id="homeWeek">Yüklənir...</div>
+ </div>
+</section>
+
+
+<section id="page-matches" class="page">
+ <div class="page-title">Matçlar</div>
+ <div class="page-subtitle">Bütün oyunlar və nəticələr</div>
+ <div id="matchesList" class="grid">Yüklənir...</div>
+</section>
+
+
+<section id="page-matchDetail" class="page">
+ <button class="btn" onclick="showPage('matches')">← Matçlara qayıt</button>
+ <div id="matchDetail" style="margin-top:15px">Yüklənir...</div>
+</section>
+
+
+<section id="page-table" class="page">
+ <div class="page-title">Turnir cədvəli</div>
+ <div class="page-subtitle">Xal → top fərqi → vurulan qollar üzrə sıralama</div>
+
+ <div class="card">
+  <div style="overflow-x:auto">
+   <table>
+    <thead>
+     <tr>
+      <th>#</th>
+      <th>Komanda</th>
+      <th>O</th>
+      <th>Q</th>
+      <th>H</th>
+      <th>M</th>
+      <th>GF</th>
+      <th>GA</th>
+      <th>GD</th>
+      <th>Xal</th>
+     </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+   </table>
+  </div>
+ </div>
+</section>
+
+
+<section id="page-teams" class="page">
+ <div class="page-title">Komandalar</div>
+ <div class="page-subtitle">Turnirdə iştirak edən komandalar</div>
+ <div id="teamsList" class="grid"></div>
+</section>
+
+
+<section id="page-players" class="page">
+ <div class="page-title">Oyunçular</div>
+ <div class="page-subtitle">Bütün futbolçular</div>
+ <div id="playersList" class="grid"></div>
+</section>
+
+
+<section id="page-lineups" class="page">
+ <div class="page-title">Heyətlər</div>
+ <div class="page-subtitle">Matçların başlanğıc heyətləri</div>
+
+ <div class="card">
+  <div class="form-group">
+   <label>Matç seç</label>
+   <select id="lineupMatchSelect" onchange="loadSelectedLineup()">
+    <option value="">Matç seçin</option>
+   </select>
+  </div>
+  <div id="lineupView"></div>
+ </div>
+</section>
+
+
+<section id="page-stats" class="page">
+ <div class="page-title">Statistika</div>
+ <div class="page-subtitle">Oyunçu göstəriciləri</div>
+
+ <div class="card">
+  <div style="overflow-x:auto">
+   <table>
+    <thead>
+     <tr>
+      <th>#</th>
+      <th>Oyunçu</th>
+      <th>Komanda</th>
+      <th>⚽ Qol</th>
+      <th>🎯 Assist</th>
+      <th>🧤 Seyv</th>
+     </tr>
+    </thead>
+    <tbody id="statsBody"></tbody>
+   </table>
+  </div>
+ </div>
+</section>
+
+
+<section id="page-cards" class="page">
+ <div class="page-title">Kartlar</div>
+ <div class="page-subtitle">Sarı və qırmızı kartlar</div>
+
+ <div class="card">
+  <div style="overflow-x:auto">
+   <table>
+    <thead>
+     <tr>
+      <th>Oyunçu</th>
+      <th>Komanda</th>
+      <th>🟨 Sarı</th>
+      <th>🟥 Qırmızı</th>
+     </tr>
+    </thead>
+    <tbody id="cardsBody"></tbody>
+   </table>
+  </div>
+ </div>
+</section>
+
+
+<section id="page-week" class="page">
+ <div class="page-title">⭐ Komanda həftəsi</div>
+ <div class="page-subtitle">Həftənin seçilmiş 11 oyunçusu</div>
+
+ <div class="card">
+  <div id="weekPublic">Yüklənir...</div>
+ </div>
+</section>
+
+
+<section id="page-highlights" class="page">
+ <div class="page-title">✨ Highlights</div>
+ <div class="page-subtitle">Ən maraqlı anlar</div>
+
+ <div class="card">
+  <div id="highlightsList"></div>
+ </div>
+</section>
+
+
+<section id="page-transfers" class="page">
+ <div class="page-title">Transferlər</div>
+ <div class="page-subtitle">Son komanda dəyişiklikləri</div>
+
+ <div class="card">
+  <div id="transfersList">Yüklənir...</div>
+ </div>
+</section>
+
+
+<section id="page-admin" class="page">
+
+ <div id="adminLoginBox" class="admin-box">
+  <div class="card">
+   <div class="login-logo">
+    <div class="logo-ball"><span>🔐</span></div>
+    <h2>Admin Login</h2>
+    <div class="muted">İdarəetmə panelinə giriş</div>
+   </div>
+
+   <div class="form-group">
+    <label>Admin şifrəsi</label>
+    <input id="adminPassword" type="password" placeholder="Şifrə">
+   </div>
+
+   <button class="btn btn-primary" style="width:100%" onclick="adminLogin()">
+    Daxil ol
+   </button>
+
+   <div id="loginError" class="small" style="color:#ff6b7b;margin-top:10px"></div>
+  </div>
+ </div>
+
+
+ <div id="adminPanel" class="hidden">
+
+  <div class="admin-header">
+   <div>
+    <div class="page-title">İdarəetmə</div>
+    <div class="page-subtitle">AliScore idarə paneli</div>
+   </div>
+   <button class="btn btn-danger" onclick="adminLogout()">Çıxış</button>
+  </div>
+
+
+  <div class="grid">
+
+   <div class="card">
+    <h2>⚽ Komanda əlavə et</h2>
+
+    <div class="form-group">
+     <label>Komanda adı</label>
+     <input id="teamName" placeholder="Məsələn: Xirdalan United">
+    </div>
+
+    <div class="form-group">
+     <label>Logo URL</label>
+     <input id="teamLogo" placeholder="https://...">
+    </div>
+
+    <button class="btn btn-primary" onclick="addTeam()">Komanda əlavə et</button>
+   </div>
+
+
+   <div class="card">
+    <h2>👤 Oyunçu əlavə et</h2>
+
+    <div class="form-group">
+     <label>Ad</label>
+     <input id="playerName" placeholder="Oyunçu adı">
+    </div>
+
+    <div class="form-group">
+     <label>Komanda</label>
+     <select id="playerTeam"></select>
+    </div>
+
+    <div class="form-grid">
+     <div>
+      <label>Nömrə</label>
+      <input id="playerNumber" type="number">
+     </div>
+     <div>
+      <label>Mövqe</label>
+      <select id="playerPosition">
+       <option value="Qapıçı">Qapıçı</option>
+       <option value="Müdafiə">Müdafiə</option>
+       <option value="Yarımmüdafiə">Yarımmüdafiə</option>
+       <option value="Hücum">Hücum</option>
+      </select>
+     </div>
+    </div>
+
+    <div class="form-group">
+     <label>Foto URL</label>
+     <input id="playerPhoto" placeholder="https://...">
+    </div>
+
+    <button class="btn btn-primary" onclick="addPlayer()">Oyunçu əlavə et</button>
+   </div>
+
+
+   <div class="card">
+    <h2>🏟️ Matç əlavə et</h2>
+
+    <div class="form-group">
+     <label>Ev sahibi</label>
+     <select id="matchHome"></select>
+    </div>
+
+    <div class="form-group">
+     <label>Qonaq</label>
+     <select id="matchAway"></select>
+    </div>
+
+    <div class="form-grid">
+     <div>
+      <label>Tarix</label>
+      <input id="matchDate" type="datetime-local">
+     </div>
+
+     <div>
+      <label>Status</label>
+      <select id="matchStatus">
+       <option value="scheduled">Planlaşdırılıb</option>
+       <option value="live">Canlı</option>
+       <option value="finished">Bitib</option>
+      </select>
+     </div>
+    </div>
+
+    <div class="form-grid">
+     <div>
+      <label>Ev qolları</label>
+      <input id="matchHomeScore" type="number" min="0" value="0">
+     </div>
+
+     <div>
+      <label>Qonaq qolları</label>
+      <input id="matchAwayScore" type="number" min="0" value="0">
+     </div>
+    </div>
+
+    <div class="form-group">
+     <label>Məkan</label>
+     <input id="matchVenue" placeholder="Stadion">
+    </div>
+
+    <button class="btn btn-primary" onclick="addMatch()">Matç əlavə et</button>
+   </div>
+
+
+   <div class="card">
+    <h2>🔔 Bildirişlər</h2>
+    <p class="muted">AliScore bildirişləri</p>
+
+    <button class="btn btn-primary" onclick="enableNotifications()">
+     Bildirişləri aktiv et
+    </button>
+
+    <button class="btn" onclick="testNotification()" style="margin-top:8px">
+     Test bildirişi
+    </button>
+
+    <div id="notificationStatus" class="small muted" style="margin-top:10px"></div>
+   </div>
+
+  </div>
+
+
+  <div class="card" style="margin-top:16px">
+   <h2>⚽ Komandalar</h2>
+   <div id="adminTeams"></div>
+  </div>
+
+
+  <div class="card" style="margin-top:16px">
+   <h2>👤 Oyunçular</h2>
+   <div id="adminPlayers"></div>
+  </div>
+
+
+  <div class="card" style="margin-top:16px">
+   <h2>🏟️ Matçlar</h2>
+   <div id="adminMatches"></div>
+  </div>
+
+
+  <div class="card" style="margin-top:16px">
+   <h2>⭐ Komanda həftəsi</h2>
+
+   <div class="form-grid">
+    <div>
+     <label>Qapıçı</label>
+     <select id="weekGoalkeeper"></select>
+    </div>
+
+    <div>
+     <label>Müdafiəçi 1</label>
+     <select id="weekDefender1"></select>
+    </div>
+
+    <div>
+     <label>Müdafiəçi 2</label>
+     <select id="weekDefender2"></select>
+    </div>
+
+    <div>
+     <label>Müdafiəçi 3</label>
+     <select id="weekDefender3"></select>
+    </div>
+
+    <div>
+     <label>Müdafiəçi 4</label>
+     <select id="weekDefender4"></select>
+    </div>
+
+    <div>
+     <label>Yarımmüdafiəçi 1</label>
+     <select id="weekMidfielder1"></select>
+    </div>
+
+    <div>
+     <label>Yarımmüdafiəçi 2</label>
+     <select id="weekMidfielder2"></select>
+    </div>
+
+    <div>
+     <label>Yarımmüdafiəçi 3</label>
+     <select id="weekMidfielder3"></select>
+    </div>
+
+    <div>
+     <label>Hücumçu 1</label>
+     <select id="weekAttacker1"></select>
+    </div>
+
+    <div>
+     <label>Hücumçu 2</label>
+     <select id="weekAttacker2"></select>
+    </div>
+
+    <div>
+     <label>Hücumçu 3</label>
+     <select id="weekAttacker3"></select>
+    </div>
+   </div>
+
+   <button class="btn btn-primary" onclick="saveTeamOfWeek()" style="margin-top:10px">
+    Komanda həftəsini yadda saxla
+   </button>
+  </div>
+
+ </div>
+</section>
+
+</main>
+
+<footer>
+ AliScore © 2026
+</footer>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<div id="modal" class="modal">
+ <div class="modal-box">
+  <div class="modal-head">
+   <h2 id="modalTitle">Redaktə</h2>
+   <button class="close" onclick="closeModal()">×</button>
+  </div>
+  <div id="modalBody"></div>
+ </div>
+</div>
+
+<script>
+"use strict";
+
+const A="/api";
+
+let teams=[];
+let players=[];
+let matches=[];
+let stats=[];
+let cards=[];
+let transfers=[];
+let currentEvents=[];
+let currentMatchId=null;
+let isAdmin=false;
+let teamOfWeek=null;
+
+
+/* =========================
+   API
+========================= */
+
+async function api(url,opt={}){
+ const options={
+  ...opt,
+  credentials:"include",
+  headers:{
+   "Content-Type":"application/json",
+   ...(opt.headers||{})
   }
+ };
+
+ try{
+  const res=await fetch(A+url,options);
+  const text=await res.text();
+
+  let data={};
+
+  try{
+   data=text?JSON.parse(text):{};
+  }catch{
+   data={raw:text};
+  }
+
+  if(!res.ok){
+   const message=
+    data.error||
+    data.message||
+    data.raw||
+    `HTTP ${res.status}`;
+
+   throw new Error(message);
+  }
+
+  return data;
+
+ }catch(err){
+  console.error("AliScore API:",url,err);
+  throw err;
+ }
+}
+
+
+/* =========================
+   UI
+========================= */
+
+function toast(message){
+ const el=document.getElementById("toast");
+ el.textContent=message;
+ el.classList.add("show");
+
+ clearTimeout(window.__toastTimer);
+
+ window.__toastTimer=setTimeout(()=>{
+  el.classList.remove("show");
+ },2500);
+}
+
+function esc(value){
+ return String(value??"")
+  .replaceAll("&","&amp;")
+  .replaceAll("<","&lt;")
+  .replaceAll(">","&gt;")
+  .replaceAll('"',"&quot;")
+  .replaceAll("'","&#039;");
+}
+
+function showPage(name){
+ document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+
+ const page=document.getElementById("page-"+name);
+
+ if(page) page.classList.add("active");
+
+ document.querySelectorAll("#mainNav button").forEach(btn=>{
+  btn.classList.toggle("active",btn.dataset.page===name);
+ });
+
+ window.scrollTo({top:0,behavior:"smooth"});
+
+ if(name==="home") loadHome();
+ if(name==="matches") renderMatches();
+ if(name==="table") renderTable();
+ if(name==="teams") renderTeams();
+ if(name==="players") renderPlayers();
+ if(name==="stats") renderStats();
+ if(name==="cards") renderCards();
+ if(name==="week") renderWeek();
+ if(name==="highlights") renderHighlights();
+ if(name==="transfers") renderTransfers();
+ if(name==="lineups") loadLineupMatches();
+ if(name==="admin") renderAdmin();
+}
+
+document.querySelectorAll("#mainNav button").forEach(btn=>{
+ btn.addEventListener("click",()=>showPage(btn.dataset.page));
 });
 
-/* =========================================================
-   VAPID / PUSH
-========================================================= */
 
-const VAPID_PUBLIC_KEY = String(
-  process.env.VAPID_PUBLIC_KEY || ""
-).trim();
+/* =========================
+   LOAD DATA
+========================= */
 
-const VAPID_PRIVATE_KEY = String(
-  process.env.VAPID_PRIVATE_KEY || ""
-).trim();
+async function loadAll(){
+ try{
+  const data=await api("/state");
 
-let VAPID_SUBJECT = String(
-  process.env.VAPID_EMAIL ||
-  process.env.VAPID_SUBJECT ||
-  ""
-).trim();
-
-if (
-  VAPID_SUBJECT &&
-  !VAPID_SUBJECT.startsWith("mailto:") &&
-  !VAPID_SUBJECT.startsWith("http://") &&
-  !VAPID_SUBJECT.startsWith("https://")
-) {
-  VAPID_SUBJECT = `mailto:${VAPID_SUBJECT}`;
-}
-
-if (!VAPID_SUBJECT) {
-  VAPID_SUBJECT = "mailto:aliscore@example.com";
-}
-
-let pushEnabled = false;
-
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  try {
-    webpush.setVapidDetails(
-      VAPID_SUBJECT,
-      VAPID_PUBLIC_KEY,
-      VAPID_PRIVATE_KEY
-    );
-
-    pushEnabled = true;
-
-    console.log("Web Push: enabled");
-    console.log("VAPID subject:", VAPID_SUBJECT);
-  } catch (err) {
-    pushEnabled = false;
-
-    console.error(
-      "Web Push configuration error:",
-      err.message
-    );
+  if(data){
+   teams=Array.isArray(data.teams)?data.teams:[];
+   players=Array.isArray(data.players)?data.players:[];
+   matches=Array.isArray(data.matches)?data.matches:[];
+   stats=Array.isArray(data.statistics)?data.statistics:[];
+   cards=Array.isArray(data.cards)?data.cards:[];
+   transfers=Array.isArray(data.transfers)?data.transfers:[];
   }
-} else {
-  console.log(
-    "Web Push: disabled - VAPID keys missing"
-  );
+ }catch(err){
+  console.warn("State load:",err);
+ }
+
+ await Promise.all([
+  loadTeams(),
+  loadPlayers(),
+  loadMatches(),
+  loadStatistics(),
+  loadCards(),
+  loadTransfers(),
+  loadTeamOfWeek()
+ ]);
+
+ updateHomeNumbers();
 }
 
-/* =========================================================
+async function loadTeams(){
+ try{
+  const data=await api("/teams");
+  teams=Array.isArray(data)?data:(data.teams||[]);
+ }catch(err){
+  console.warn(err);
+ }
+}
+
+async function loadPlayers(){
+ try{
+  const data=await api("/players");
+  players=Array.isArray(data)?data:(data.players||[]);
+ }catch(err){
+  console.warn(err);
+ }
+}
+
+async function loadMatches(){
+ try{
+  const data=await api("/matches");
+  matches=Array.isArray(data)?data:(data.matches||[]);
+ }catch(err){
+  console.warn(err);
+ }
+}
+
+async function loadStatistics(){
+ try{
+  const data=await api("/statistics");
+  stats=Array.isArray(data)?data:(data.statistics||[]);
+ }catch(err){
+  console.warn(err);
+ }
+}
+
+async function loadCards(){
+ try{
+  const data=await api("/cards");
+  cards=Array.isArray(data)?data:(data.cards||[]);
+ }catch(err){
+  console.warn(err);
+ }
+}
+
+async function loadTransfers(){
+ try{
+  const data=await api("/transfers");
+  transfers=Array.isArray(data)?data:(data.transfers||[]);
+ }catch(err){
+  console.warn(err);
+ }
+}
+
+async function loadTeamOfWeek(){
+ try{
+  const data=await api("/team-of-week");
+  teamOfWeek=data?.teamOfWeek||data||null;
+ }catch{
+  teamOfWeek=null;
+ }
+}
+
+
+/* =========================
    HELPERS
-========================================================= */
+========================= */
 
-function signAdminToken() {
-  return jwt.sign(
-    {
-      role: "admin"
-    },
-    JWT_SECRET,
-    {
-      expiresIn: "7d"
-    }
-  );
+function teamById(id){
+ return teams.find(t=>String(t.id)===String(id));
 }
 
-function requireAdmin(req, res, next) {
-  try {
-    let token = req.cookies.aliscore_admin;
-
-    // Дополнительно принимаем Authorization: Bearer TOKEN
-    if (!token) {
-      const auth =
-        req.headers.authorization || "";
-
-      if (auth.startsWith("Bearer ")) {
-        token = auth.slice(7).trim();
-      }
-    }
-
-    if (!token) {
-      return res.status(401).json({
-        ok: false,
-        error: "Admin login required",
-        code: "ADMIN_REQUIRED"
-      });
-    }
-
-    const decoded = jwt.verify(
-      token,
-      JWT_SECRET
-    );
-
-    if (
-      !decoded ||
-      decoded.role !== "admin"
-    ) {
-      return res.status(401).json({
-        ok: false,
-        error: "Admin login required",
-        code: "ADMIN_REQUIRED"
-      });
-    }
-
-    req.admin = decoded;
-
-    next();
-  } catch (err) {
-    console.error(
-      "ADMIN AUTH ERROR:",
-      err.message
-    );
-
-    return res.status(401).json({
-      ok: false,
-      error: "Admin session expired",
-      code: "ADMIN_EXPIRED"
-    });
-  }
+function playerById(id){
+ return players.find(p=>String(p.id)===String(id));
 }
 
-function cleanString(value) {
-  if (
-    value === undefined ||
-    value === null
-  ) {
-    return "";
-  }
-
-  return String(value).trim();
+function teamName(id){
+ const t=teamById(id);
+ return t?.name||t?.team_name||"—";
 }
 
-function intValue(value, fallback = 0) {
-  const n = Number(value);
-
-  if (!Number.isFinite(n)) {
-    return fallback;
-  }
-
-  return Math.trunc(n);
+function playerName(id){
+ const p=playerById(id);
+ return p?.name||"—";
 }
 
-function nullableInt(value) {
-  if (
-    value === undefined ||
-    value === null ||
-    value === "" ||
-    value === "null"
-  ) {
-    return null;
-  }
-
-  const n = Number(value);
-
-  if (!Number.isFinite(n)) {
-    return null;
-  }
-
-  return Math.trunc(n);
+function getPlayerTeam(p){
+ return p?.team_id??p?.teamId??p?.team;
 }
 
-function numberValue(value, fallback = 0) {
-  const n = Number(value);
-
-  if (!Number.isFinite(n)) {
-    return fallback;
-  }
-
-  return n;
+function getMatchHome(m){
+ return m?.home_team_id??m?.homeTeamId??m?.home_id;
 }
 
-async function query(text, params = []) {
-  return pool.query(text, params);
+function getMatchAway(m){
+ return m?.away_team_id??m?.awayTeamId??m?.away_id;
 }
 
-function eventStatColumn(type) {
-  const map = {
-    goal: "goals",
-    assist: "assists",
-    save: "saves",
-    yellow: "yellow_cards",
-    red: "red_cards"
-  };
-
-  return map[type] || null;
+function getHomeScore(m){
+ return Number(m?.home_score??m?.homeScore??m?.score_home??0);
 }
 
-async function createNotification(
-  type,
-  title,
-  body,
-  data = {}
-) {
-  try {
-    await query(
-      `
-        INSERT INTO notifications
-          (type, title, body, data)
-        VALUES
-          ($1, $2, $3, $4)
-      `,
-      [
-        type,
-        title,
-        body,
-        JSON.stringify(data || {})
-      ]
-    );
-  } catch (err) {
-    console.error(
-      "Notification create error:",
-      err.message
-    );
-  }
+function getAwayScore(m){
+ return Number(m?.away_score??m?.awayScore??m?.score_away??0);
 }
 
-async function sendPush(
-  title,
-  body,
-  data = {}
-) {
-  if (!pushEnabled) {
-    return;
-  }
-
-  let subscriptions;
-
-  try {
-    const result = await query(`
-      SELECT
-        id,
-        endpoint,
-        p256dh,
-        auth
-      FROM push_subscriptions
-    `);
-
-    subscriptions = result.rows;
-  } catch (err) {
-    console.error(
-      "Push subscriptions read error:",
-      err.message
-    );
-
-    return;
-  }
-
-  const payload = JSON.stringify({
-    title,
-    body,
-    data
-  });
-
-  for (const sub of subscriptions) {
-    try {
-      await webpush.sendNotification(
-        {
-          endpoint: sub.endpoint,
-          keys: {
-            p256dh: sub.p256dh,
-            auth: sub.auth
-          }
-        },
-        payload
-      );
-    } catch (err) {
-      console.error(
-        "Push send error:",
-        err.statusCode || "",
-        err.message
-      );
-
-      if (
-        err.statusCode === 404 ||
-        err.statusCode === 410
-      ) {
-        try {
-          await query(
-            `
-              DELETE FROM push_subscriptions
-              WHERE id = $1
-            `,
-            [sub.id]
-          );
-        } catch (deleteErr) {
-          console.error(
-            "Old push subscription delete error:",
-            deleteErr.message
-          );
-        }
-      }
-    }
-  }
+function getMatchStatus(m){
+ return m?.status||"scheduled";
 }
 
-async function notify(
-  type,
-  title,
-  body,
-  data = {}
-) {
-  await createNotification(
-    type,
-    title,
-    body,
-    data
-  );
+function formatDate(date){
+ if(!date)return "Tarix yoxdur";
 
-  await sendPush(
-    title,
-    body,
-    data
-  );
+ const d=new Date(date);
+
+ if(Number.isNaN(d.getTime()))return String(date);
+
+ return d.toLocaleString("az-AZ",{
+  day:"2-digit",
+  month:"2-digit",
+  year:"numeric",
+  hour:"2-digit",
+  minute:"2-digit"
+ });
 }
 
-/* =========================================================
-   DATABASE
-========================================================= */
-
-async function initDatabase() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS teams (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL UNIQUE,
-      logo TEXT DEFAULT '',
-      points INTEGER NOT NULL DEFAULT 0,
-      played INTEGER NOT NULL DEFAULT 0,
-      wins INTEGER NOT NULL DEFAULT 0,
-      draws INTEGER NOT NULL DEFAULT 0,
-      losses INTEGER NOT NULL DEFAULT 0,
-      goals_for INTEGER NOT NULL DEFAULT 0,
-      goals_against INTEGER NOT NULL DEFAULT 0,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS players (
-      id SERIAL PRIMARY KEY,
-      team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
-      name TEXT NOT NULL,
-      number INTEGER DEFAULT 0,
-      position TEXT DEFAULT '',
-      photo TEXT DEFAULT '',
-      goals INTEGER NOT NULL DEFAULT 0,
-      assists INTEGER NOT NULL DEFAULT 0,
-      saves INTEGER NOT NULL DEFAULT 0,
-      yellow_cards INTEGER NOT NULL DEFAULT 0,
-      red_cards INTEGER NOT NULL DEFAULT 0,
-      rating NUMERIC DEFAULT 0,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS matches (
-      id SERIAL PRIMARY KEY,
-      home_team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
-      away_team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
-      home_score INTEGER NOT NULL DEFAULT 0,
-      away_score INTEGER NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'scheduled',
-      match_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      venue TEXT DEFAULT '',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS match_events (
-      id SERIAL PRIMARY KEY,
-      match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-      team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
-      player_id INTEGER REFERENCES players(id) ON DELETE SET NULL,
-      type TEXT NOT NULL,
-      minute INTEGER DEFAULT 0,
-      note TEXT DEFAULT '',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id SERIAL PRIMARY KEY,
-      type TEXT DEFAULT '',
-      title TEXT NOT NULL,
-      body TEXT DEFAULT '',
-      data JSONB DEFAULT '{}'::jsonb,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS team_of_week (
-      id SERIAL PRIMARY KEY,
-      week TEXT NOT NULL,
-      goalkeeper_id INTEGER REFERENCES players(id) ON DELETE SET NULL,
-      defender_id INTEGER REFERENCES players(id) ON DELETE SET NULL,
-      midfielder_id INTEGER REFERENCES players(id) ON DELETE SET NULL,
-      attacker_id INTEGER REFERENCES players(id) ON DELETE SET NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS lineups (
-      id SERIAL PRIMARY KEY,
-      match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-      team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
-      goalkeeper_id INTEGER REFERENCES players(id) ON DELETE SET NULL,
-      defenders JSONB DEFAULT '[]'::jsonb,
-      midfielders JSONB DEFAULT '[]'::jsonb,
-      attackers JSONB DEFAULT '[]'::jsonb,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS transfers (
-      id SERIAL PRIMARY KEY,
-      player_id INTEGER REFERENCES players(id) ON DELETE SET NULL,
-      from_team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
-      to_team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
-      note TEXT DEFAULT '',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS push_subscriptions (
-      id SERIAL PRIMARY KEY,
-      endpoint TEXT NOT NULL UNIQUE,
-      p256dh TEXT NOT NULL,
-      auth TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  /* =======================================================
-     TEAMS COMPATIBILITY
-  ======================================================= */
-
-  await query(`
-    ALTER TABLE teams
-    ADD COLUMN IF NOT EXISTS logo TEXT DEFAULT ''
-  `);
-
-  await query(`
-    ALTER TABLE teams
-    ADD COLUMN IF NOT EXISTS points INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE teams
-    ADD COLUMN IF NOT EXISTS played INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE teams
-    ADD COLUMN IF NOT EXISTS wins INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE teams
-    ADD COLUMN IF NOT EXISTS draws INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE teams
-    ADD COLUMN IF NOT EXISTS losses INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE teams
-    ADD COLUMN IF NOT EXISTS goals_for INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE teams
-    ADD COLUMN IF NOT EXISTS goals_against INTEGER NOT NULL DEFAULT 0
-  `);
-
-  /* =======================================================
-     PLAYERS COMPATIBILITY
-  ======================================================= */
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS team_id INTEGER
-  `);
-
-  try {
-    await query(`
-      ALTER TABLE players
-      ADD CONSTRAINT players_team_id_fkey
-      FOREIGN KEY (team_id)
-      REFERENCES teams(id)
-      ON DELETE SET NULL
-    `);
-  } catch (err) {
-    if (
-      !String(err.message || "")
-        .toLowerCase()
-        .includes("already exists")
-    ) {
-      console.log(
-        "players_team_id_fkey:",
-        err.message
-      );
-    }
-  }
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS name TEXT DEFAULT ''
-  `);
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS number INTEGER DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS position TEXT DEFAULT ''
-  `);
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS photo TEXT DEFAULT ''
-  `);
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS goals INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS assists INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS saves INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS yellow_cards INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS red_cards INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS rating NUMERIC DEFAULT 0
-  `);
-
-  try {
-    await query(`
-      ALTER TABLE players
-      ALTER COLUMN rating TYPE NUMERIC
-      USING COALESCE(rating, 0)::NUMERIC
-    `);
-  } catch (err) {
-    console.log(
-      "Rating type compatibility:",
-      err.message
-    );
-  }
-
-  /* =======================================================
-     MATCHES COMPATIBILITY
-  ======================================================= */
-
-  await query(`
-    ALTER TABLE matches
-    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'scheduled'
-  `);
-
-  await query(`
-    ALTER TABLE matches
-    ADD COLUMN IF NOT EXISTS match_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  `);
-
-  await query(`
-    ALTER TABLE matches
-    ADD COLUMN IF NOT EXISTS venue TEXT DEFAULT ''
-  `);
-
-  /* =======================================================
-     EVENTS COMPATIBILITY
-  ======================================================= */
-
-  await query(`
-    ALTER TABLE match_events
-    ADD COLUMN IF NOT EXISTS team_id INTEGER
-  `);
-
-  await query(`
-    ALTER TABLE match_events
-    ADD COLUMN IF NOT EXISTS player_id INTEGER
-  `);
-
-  await query(`
-    ALTER TABLE match_events
-    ADD COLUMN IF NOT EXISTS type TEXT DEFAULT ''
-  `);
-
-  await query(`
-    ALTER TABLE match_events
-    ADD COLUMN IF NOT EXISTS minute INTEGER DEFAULT 0
-  `);
-
-  await query(`
-    ALTER TABLE match_events
-    ADD COLUMN IF NOT EXISTS note TEXT DEFAULT ''
-  `);
-
-  await seedData();
-
-  console.log("Database initialized");
+function statusText(status){
+ if(status==="live")return "CANLI";
+ if(status==="finished")return "BİTİB";
+ return "PLANLAŞDIRILIB";
 }
 
-/* =========================================================
-   SEED
-========================================================= */
-
-async function seedData() {
-  const teams = [
-    "Xirdalan United",
-    "Xirdalan Wolves",
-    "Neweli FK",
-    "MSN FK",
-    "Lotu pişiklər"
-  ];
-
-  for (const name of teams) {
-    await query(
-      `
-        INSERT INTO teams (name)
-        VALUES ($1)
-        ON CONFLICT (name) DO NOTHING
-      `,
-      [name]
-    );
-  }
-
-  const teamRows = await query(
-    `
-      SELECT id, name
-      FROM teams
-      WHERE name = ANY($1)
-    `,
-    [teams]
-  );
-
-  const teamMap = {};
-
-  for (const row of teamRows.rows) {
-    teamMap[row.name] = row.id;
-  }
-
-  const seedPlayers = [
-    ["Xirdalan Wolves", "Ali", 1, "Qapıçı"],
-    ["Xirdalan Wolves", "Emin", 2, "Müdafiə"],
-    ["Xirdalan Wolves", "Huseyin", 3, "Müdafiə"],
-    ["Xirdalan Wolves", "Raul", 4, "Hücum"],
-
-    ["Xirdalan United", "Amil", 1, "Qapıçı"],
-    ["Xirdalan United", "Elmir", 2, "Müdafiə"],
-    ["Xirdalan United", "İsa", 3, "Yarımmüdafiə"],
-    ["Xirdalan United", "Ümüd", 4, "Hücum"],
-    ["Xirdalan United", "Huseyin", 5, "Müdafiə"],
-
-    ["MSN FK", "Fuad", 1, "Qapıçı"],
-    ["MSN FK", "Murad", 2, "Müdafiə"],
-
-    ["Neweli FK", "Tofik", 1, "Qapıçı"],
-    ["Neweli FK", "Arda", 2, "Müdafiə"],
-    ["Neweli FK", "Veli", 3, "Yarımmüdafiə"],
-    ["Neweli FK", "Emil", 4, "Hücum"],
-
-    ["Lotu pişiklər", "Kamran", 1, "Qapıçı"],
-    ["Lotu pişiklər", "Ayxan", 2, "Müdafiə"],
-    ["Lotu pişiklər", "Ramil", 3, "Hücum"]
-  ];
-
-  for (const item of seedPlayers) {
-    const teamName = item[0];
-    const playerName = item[1];
-    const number = item[2];
-    const position = item[3];
-
-    const teamId = teamMap[teamName];
-
-    if (!teamId) continue;
-
-    const exists = await query(
-      `
-        SELECT id
-        FROM players
-        WHERE team_id = $1
-          AND LOWER(name) = LOWER($2)
-        LIMIT 1
-      `,
-      [teamId, playerName]
-    );
-
-    if (!exists.rows.length) {
-      await query(
-        `
-          INSERT INTO players
-            (
-              team_id,
-              name,
-              number,
-              position
-            )
-          VALUES
-            ($1, $2, $3, $4)
-        `,
-        [
-          teamId,
-          playerName,
-          number,
-          position
-        ]
-      );
-    }
-  }
+function statusClass(status){
+ if(status==="live")return "status-live";
+ if(status==="finished")return "status-finished";
+ return "status-scheduled";
 }
 
-/* =========================================================
-   BASIC
-========================================================= */
+function teamLogo(team){
+ const src=team?.logo||team?.logo_url||team?.photo;
 
-app.get("/api/health", async (req, res) => {
-  try {
-    await query("SELECT 1");
+ if(src){
+  return `<img src="${esc(src)}" onerror="this.style.display='none'">`;
+ }
 
-    res.json({
-      ok: true,
-      database: "connected"
-    });
-  } catch (err) {
-    res.status(500).json({
-      ok: false,
-      database: "error",
-      error: err.message
-    });
-  }
-});
-
-app.get("/api", async (req, res) => {
-  try {
-    await query("SELECT 1");
-
-    res.json({
-      ok: true,
-      api: "AliScore API",
-      database: "connected",
-      push: pushEnabled
-    });
-  } catch (err) {
-    res.status(500).json({
-      ok: false,
-      api: "AliScore API",
-      database: "error",
-      error: err.message
-    });
-  }
-});
-
-/* =========================================================
-   STATE
-========================================================= */
-
-app.get("/api/state", async (req, res) => {
-  try {
-    const [
-      teams,
-      players,
-      matches,
-      events,
-      notifications,
-      transfers,
-      teamOfWeek
-    ] = await Promise.all([
-      query(`
-        SELECT
-          t.*,
-          (
-            t.goals_for -
-            t.goals_against
-          ) AS goal_difference
-        FROM teams t
-        ORDER BY
-          t.points DESC,
-          (
-            t.goals_for -
-            t.goals_against
-          ) DESC,
-          t.goals_for DESC,
-          t.name ASC
-      `),
-
-      query(`
-        SELECT
-          p.*,
-          t.name AS team_name
-        FROM players p
-        LEFT JOIN teams t
-          ON t.id = p.team_id
-        ORDER BY
-          t.name ASC,
-          p.number ASC,
-          p.name ASC
-      `),
-
-      query(`
-        SELECT
-          m.*,
-          ht.name AS home_team_name,
-          ht.logo AS home_team_logo,
-          at.name AS away_team_name,
-          at.logo AS away_team_logo
-        FROM matches m
-        LEFT JOIN teams ht
-          ON ht.id = m.home_team_id
-        LEFT JOIN teams at
-          ON at.id = m.away_team_id
-        ORDER BY
-          m.match_date DESC,
-          m.id DESC
-      `),
-
-      query(`
-        SELECT
-          e.*,
-          p.name AS player_name,
-          p.photo AS player_photo,
-          t.name AS team_name
-        FROM match_events e
-        LEFT JOIN players p
-          ON p.id = e.player_id
-        LEFT JOIN teams t
-          ON t.id = e.team_id
-        ORDER BY
-          e.created_at DESC,
-          e.id DESC
-      `),
-
-      query(`
-        SELECT *
-        FROM notifications
-        ORDER BY
-          created_at DESC,
-          id DESC
-        LIMIT 100
-      `),
-
-      query(`
-        SELECT
-          tr.*,
-          p.name AS player_name,
-          ft.name AS from_team_name,
-          tt.name AS to_team_name
-        FROM transfers tr
-        LEFT JOIN players p
-          ON p.id = tr.player_id
-        LEFT JOIN teams ft
-          ON ft.id = tr.from_team_id
-        LEFT JOIN teams tt
-          ON tt.id = tr.to_team_id
-        ORDER BY
-          tr.created_at DESC,
-          tr.id DESC
-        LIMIT 100
-      `),
-
-      query(`
-        SELECT
-          tw.*,
-          gp.name AS goalkeeper_name,
-          dp.name AS defender_name,
-          mp.name AS midfielder_name,
-          ap.name AS attacker_name
-        FROM team_of_week tw
-        LEFT JOIN players gp
-          ON gp.id = tw.goalkeeper_id
-        LEFT JOIN players dp
-          ON dp.id = tw.defender_id
-        LEFT JOIN players mp
-          ON mp.id = tw.midfielder_id
-        LEFT JOIN players ap
-          ON ap.id = tw.attacker_id
-        ORDER BY
-          tw.created_at DESC,
-          tw.id DESC
-      `)
-    ]);
-
-    res.json({
-      ok: true,
-      teams: teams.rows,
-      players: players.rows,
-      matches: matches.rows,
-      events: events.rows,
-      notifications: notifications.rows,
-      transfers: transfers.rows,
-      teamOfWeek: teamOfWeek.rows,
-      push: {
-        enabled: pushEnabled,
-        publicKey: VAPID_PUBLIC_KEY || ""
-      }
-    });
-  } catch (err) {
-    console.error("State error:", err);
-
-    res.status(500).json({
-      ok: false,
-      error: err.message
-    });
-  }
-});
-
-/* =========================================================
-   ADMIN
-========================================================= */
-
-app.post("/api/admin/login", (req, res) => {
-  const password = cleanString(
-    req.body.password
-  );
-
-  if (password !== ADMIN_PASSWORD) {
-    return res.status(401).json({
-      ok: false,
-      error: "Yanlış şifrə"
-    });
-  }
-
-  const token = signAdminToken();
-
-  res.cookie(
-    "aliscore_admin",
-    token,
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: true,
-      path: "/",
-      maxAge:
-        7 *
-        24 *
-        60 *
-        60 *
-        1000
-    }
-  );
-
-  res.json({
-    ok: true,
-    admin: true,
-    token
-  });
-});
-
-app.get("/api/admin/me", (req, res) => {
-  try {
-    let token =
-      req.cookies.aliscore_admin;
-
-    if (!token) {
-      const auth =
-        req.headers.authorization || "";
-
-      if (auth.startsWith("Bearer ")) {
-        token =
-          auth.slice(7).trim();
-      }
-    }
-
-    if (!token) {
-      return res.json({
-        ok: true,
-        admin: false
-      });
-    }
-
-    const decoded =
-      jwt.verify(
-        token,
-        JWT_SECRET
-      );
-
-    res.json({
-      ok: true,
-      admin:
-        decoded.role === "admin"
-    });
-  } catch (err) {
-    res.json({
-      ok: true,
-      admin: false
-    });
-  }
-});
-
-app.post(
-  "/api/admin/logout",
-  (req, res) => {
-    res.clearCookie(
-      "aliscore_admin",
-      {
-        path: "/"
-      }
-    );
-
-    res.json({
-      ok: true
-    });
-  }
-);
-
-/* =========================================================
-   TEAMS
-========================================================= */
-
-app.get("/api/teams", async (req, res) => {
-  try {
-    const result = await query(`
-      SELECT
-        t.*,
-        (
-          t.goals_for -
-          t.goals_against
-        ) AS goal_difference
-      FROM teams t
-      ORDER BY
-        t.points DESC,
-        (
-          t.goals_for -
-          t.goals_against
-        ) DESC,
-        t.goals_for DESC,
-        t.name ASC
-    `);
-
-    res.json({
-      ok: true,
-      teams: result.rows
-    });
-  } catch (err) {
-    res.status(500).json({
-      ok: false,
-      error: err.message
-    });
-  }
-});
-
-app.post(
-  "/api/teams",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const name =
-        cleanString(req.body.name);
-
-      const logo =
-        cleanString(req.body.logo);
-
-      if (!name) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Komanda adı tələb olunur"
-        });
-      }
-
-      const result = await query(
-        `
-          INSERT INTO teams
-            (name, logo)
-          VALUES
-            ($1, $2)
-          RETURNING *
-        `,
-        [name, logo]
-      );
-
-      res.json({
-        ok: true,
-        team: result.rows[0]
-      });
-    } catch (err) {
-      res.status(400).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-async function updateTeam(req, res) {
-  try {
-    const id =
-      intValue(req.params.id);
-
-    const current =
-      await query(
-        `
-          SELECT *
-          FROM teams
-          WHERE id = $1
-        `,
-        [id]
-      );
-
-    if (!current.rows.length) {
-      return res.status(404).json({
-        ok: false,
-        error:
-          "Komanda tapılmadı"
-      });
-    }
-
-    const old =
-      current.rows[0];
-
-    const name =
-      req.body.name !== undefined
-        ? cleanString(req.body.name)
-        : old.name;
-
-    const logo =
-      req.body.logo !== undefined
-        ? cleanString(req.body.logo)
-        : old.logo;
-
-    const points =
-      req.body.points !== undefined
-        ? intValue(req.body.points)
-        : old.points;
-
-    const played =
-      req.body.played !== undefined
-        ? intValue(req.body.played)
-        : old.played;
-
-    const wins =
-      req.body.wins !== undefined
-        ? intValue(req.body.wins)
-        : old.wins;
-
-    const draws =
-      req.body.draws !== undefined
-        ? intValue(req.body.draws)
-        : old.draws;
-
-    const losses =
-      req.body.losses !== undefined
-        ? intValue(req.body.losses)
-        : old.losses;
-
-    const goalsFor =
-      req.body.goals_for !== undefined
-        ? intValue(req.body.goals_for)
-        : old.goals_for;
-
-    const goalsAgainst =
-      req.body.goals_against !== undefined
-        ? intValue(req.body.goals_against)
-        : old.goals_against;
-
-    const result =
-      await query(
-        `
-          UPDATE teams
-          SET
-            name = $1,
-            logo = $2,
-            points = $3,
-            played = $4,
-            wins = $5,
-            draws = $6,
-            losses = $7,
-            goals_for = $8,
-            goals_against = $9
-          WHERE id = $10
-          RETURNING *
-        `,
-        [
-          name,
-          logo,
-          points,
-          played,
-          wins,
-          draws,
-          losses,
-          goalsFor,
-          goalsAgainst,
-          id
-        ]
-      );
-
-    res.json({
-      ok: true,
-      team: result.rows[0]
-    });
-  } catch (err) {
-    res.status(400).json({
-      ok: false,
-      error: err.message
-    });
-  }
+ return "⚽";
 }
 
-app.put(
-  "/api/teams/:id",
-  requireAdmin,
-  updateTeam
-);
+function playerPhoto(player){
+ const src=player?.photo||player?.photo_url||player?.image||player?.avatar;
 
-app.patch(
-  "/api/teams/:id",
-  requireAdmin,
-  updateTeam
-);
+ if(src){
+  return `<img src="${esc(src)}" onerror="this.style.display='none'">`;
+ }
 
-app.delete(
-  "/api/teams/:id",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const id =
-        intValue(req.params.id);
-
-      await query(
-        `
-          DELETE FROM teams
-          WHERE id = $1
-        `,
-        [id]
-      );
-
-      res.json({
-        ok: true
-      });
-    } catch (err) {
-      res.status(400).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-/* =========================================================
-   PLAYERS
-========================================================= */
-
-app.get(
-  "/api/players",
-  async (req, res) => {
-    try {
-      const result =
-        await query(`
-          SELECT
-            p.*,
-            t.name AS team_name,
-            t.logo AS team_logo
-          FROM players p
-          LEFT JOIN teams t
-            ON t.id = p.team_id
-          ORDER BY
-            t.name ASC,
-            p.number ASC,
-            p.name ASC
-        `);
-
-      res.json({
-        ok: true,
-        players: result.rows
-      });
-    } catch (err) {
-      console.error(
-        "GET PLAYERS ERROR:",
-        err
-      );
-
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-app.post(
-  "/api/players",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const teamId =
-        nullableInt(
-          req.body.team_id !== undefined
-            ? req.body.team_id
-            : req.body.teamId
-        );
-
-      const name =
-        cleanString(
-          req.body.name
-        );
-
-      const number =
-        intValue(
-          req.body.number !== undefined
-            ? req.body.number
-            : req.body.player_number
-        );
-
-      const rawPosition =
-        req.body.position !== undefined
-          ? req.body.position
-          : req.body.player_position !== undefined
-            ? req.body.player_position
-            : req.body.role;
-
-      const position =
-        cleanString(rawPosition);
-
-      const photo =
-        cleanString(
-          req.body.photo
-        );
-
-      if (!name) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Oyunçu adı tələb olunur"
-        });
-      }
-
-      if (teamId !== null) {
-        const team =
-          await query(
-            `
-              SELECT id
-              FROM teams
-              WHERE id = $1
-            `,
-            [teamId]
-          );
-
-        if (!team.rows.length) {
-          return res.status(400).json({
-            ok: false,
-            error:
-              "Komanda tapılmadı"
-          });
-        }
-      }
-
-      const result =
-        await query(
-          `
-            INSERT INTO players
-              (
-                team_id,
-                name,
-                number,
-                position,
-                photo
-              )
-            VALUES
-              ($1, $2, $3, $4, $5)
-            RETURNING *
-          `,
-          [
-            teamId,
-            name,
-            number,
-            position,
-            photo
-          ]
-        );
-
-      res.status(201).json({
-        ok: true,
-        player:
-          result.rows[0]
-      });
-    } catch (err) {
-      console.error(
-        "ADD PLAYER ERROR:",
-        err
-      );
-
-      res.status(400).json({
-        ok: false,
-        error:
-          err.message ||
-          "Oyunçu əlavə edilmədi"
-      });
-    }
-  }
-);
-
-/* =========================================================
-   UPDATE PLAYER
-========================================================= */
-
-async function updatePlayer(
-  req,
-  res
-) {
-  try {
-    const id =
-      intValue(req.params.id);
-
-    if (!id) {
-      return res.status(400).json({
-        ok: false,
-        error:
-          "Yanlış oyunçu ID-si"
-      });
-    }
-
-    const current =
-      await query(
-        `
-          SELECT *
-          FROM players
-          WHERE id = $1
-        `,
-        [id]
-      );
-
-    if (!current.rows.length) {
-      return res.status(404).json({
-        ok: false,
-        error:
-          "Oyunçu tapılmadı"
-      });
-    }
-
-    const old =
-      current.rows[0];
-
-    const teamId =
-      req.body.team_id !== undefined
-        ? nullableInt(req.body.team_id)
-        : req.body.teamId !== undefined
-          ? nullableInt(req.body.teamId)
-          : old.team_id;
-
-    const name =
-      req.body.name !== undefined
-        ? cleanString(req.body.name)
-        : old.name;
-
-    const number =
-      req.body.number !== undefined
-        ? intValue(req.body.number)
-        : req.body.player_number !== undefined
-          ? intValue(req.body.player_number)
-          : old.number;
-
-    const rawPosition =
-      req.body.position !== undefined
-        ? req.body.position
-        : req.body.player_position !== undefined
-          ? req.body.player_position
-          : req.body.role;
-
-    const position =
-      rawPosition !== undefined
-        ? cleanString(rawPosition)
-        : old.position;
-
-    const photo =
-      req.body.photo !== undefined
-        ? cleanString(req.body.photo)
-        : old.photo;
-
-    const goals =
-      req.body.goals !== undefined
-        ? intValue(req.body.goals)
-        : old.goals;
-
-    const assists =
-      req.body.assists !== undefined
-        ? intValue(req.body.assists)
-        : old.assists;
-
-    const saves =
-      req.body.saves !== undefined
-        ? intValue(req.body.saves)
-        : old.saves;
-
-    const yellowCards =
-      req.body.yellow_cards !== undefined
-        ? intValue(req.body.yellow_cards)
-        : old.yellow_cards;
-
-    const redCards =
-      req.body.red_cards !== undefined
-        ? intValue(req.body.red_cards)
-        : old.red_cards;
-
-    let rating =
-      old.rating !== null &&
-      old.rating !== undefined
-        ? Number(old.rating)
-        : 0;
-
-    if (
-      req.body.rating !==
-      undefined
-    ) {
-      const parsedRating =
-        Number(req.body.rating);
-
-      if (
-        !Number.isFinite(
-          parsedRating
-        )
-      ) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Rating düzgün deyil"
-        });
-      }
-
-      rating = parsedRating;
-    }
-
-    if (!Number.isFinite(rating)) {
-      rating = 0;
-    }
-
-    if (teamId !== null) {
-      const team =
-        await query(
-          `
-            SELECT id
-            FROM teams
-            WHERE id = $1
-          `,
-          [teamId]
-        );
-
-      if (!team.rows.length) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Komanda tapılmadı"
-        });
-      }
-    }
-
-    const result =
-      await query(
-        `
-          UPDATE players
-          SET
-            team_id = $1,
-            name = $2,
-            number = $3,
-            position = $4,
-            photo = $5,
-            goals = $6,
-            assists = $7,
-            saves = $8,
-            yellow_cards = $9,
-            red_cards = $10,
-            rating = $11
-          WHERE id = $12
-          RETURNING *
-        `,
-        [
-          teamId,
-          name,
-          number,
-          position,
-          photo,
-          goals,
-          assists,
-          saves,
-          yellowCards,
-          redCards,
-          rating,
-          id
-        ]
-      );
-
-    res.json({
-      ok: true,
-      player:
-        result.rows[0]
-    });
-  } catch (err) {
-    console.error(
-      "UPDATE PLAYER ERROR:",
-      err
-    );
-
-    res.status(400).json({
-      ok: false,
-      error:
-        err.message ||
-        "Oyunçu yadda saxlanmadı"
-    });
-  }
+ return "👤";
 }
 
-app.put(
-  "/api/players/:id",
-  requireAdmin,
-  updatePlayer
-);
 
-app.patch(
-  "/api/players/:id",
-  requireAdmin,
-  updatePlayer
-);
+/* =========================
+   HOME
+========================= */
 
-app.delete(
-  "/api/players/:id",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const id =
-        intValue(req.params.id);
+function updateHomeNumbers(){
+ document.getElementById("homeTeams").textContent=teams.length;
+ document.getElementById("homePlayers").textContent=players.length;
+ document.getElementById("homeMatches").textContent=matches.length;
+}
 
-      if (!id) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Yanlış oyunçu ID-si"
-        });
-      }
+async function loadHome(){
+ updateHomeNumbers();
 
-      await query(
-        `
-          DELETE FROM players
-          WHERE id = $1
-        `,
-        [id]
-      );
+ const today=document.getElementById("homeToday");
+ const results=document.getElementById("homeResults");
 
-      res.json({
-        ok: true
-      });
-    } catch (err) {
-      console.error(
-        "DELETE PLAYER ERROR:",
-        err
-      );
+ const now=new Date();
 
-      res.status(400).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
+ const todayMatches=matches.filter(m=>{
+  if(!m.date&&!m.match_date)return false;
 
-/* =========================================================
+  const d=new Date(m.date||m.match_date);
+
+  return d.toDateString()===now.toDateString();
+ });
+
+ if(!todayMatches.length){
+  today.innerHTML=`<div class="empty">Bu gün matç yoxdur.</div>`;
+ }else{
+  today.innerHTML=todayMatches.slice(0,5).map(matchMini).join("");
+ }
+
+ const finished=matches
+  .filter(m=>getMatchStatus(m)==="finished")
+  .slice()
+  .reverse()
+  .slice(0,5);
+
+ if(!finished.length){
+  results.innerHTML=`<div class="empty">Hələ nəticə yoxdur.</div>`;
+ }else{
+  results.innerHTML=finished.map(matchMini).join("");
+ }
+
+ renderHomeWeek();
+}
+
+function matchMini(m){
+ return `
+ <div class="match-card" style="margin-bottom:10px;cursor:pointer" onclick="openMatch('${esc(m.id)}')">
+  <div class="match-top">
+   <span>${esc(formatDate(m.date||m.match_date))}</span>
+   <span class="status ${statusClass(getMatchStatus(m))}">
+    ${statusText(getMatchStatus(m))}
+   </span>
+  </div>
+
+  <div class="match-teams">
+   <div class="match-team">
+    <div class="team-logo">${teamLogo(teamById(getMatchHome(m)))}</div>
+    <span>${esc(teamName(getMatchHome(m)))}</span>
+   </div>
+
+   <div class="score">
+    ${getMatchStatus(m)==="scheduled"?"VS":`${getHomeScore(m)} : ${getAwayScore(m)}`}
+   </div>
+
+   <div class="match-team">
+    <div class="team-logo">${teamLogo(teamById(getMatchAway(m)))}</div>
+    <span>${esc(teamName(getMatchAway(m)))}</span>
+   </div>
+  </div>
+ </div>`;
+}
+
+
+/* =========================
    MATCHES
-========================================================= */
+========================= */
 
-app.get(
-  "/api/matches",
-  async (req, res) => {
-    try {
-      const result =
-        await query(`
-          SELECT
-            m.*,
-            ht.name AS home_team_name,
-            ht.logo AS home_team_logo,
-            at.name AS away_team_name,
-            at.logo AS away_team_logo
-          FROM matches m
-          LEFT JOIN teams ht
-            ON ht.id = m.home_team_id
-          LEFT JOIN teams at
-            ON at.id = m.away_team_id
-          ORDER BY
-            m.match_date DESC,
-            m.id DESC
-        `);
+function renderMatches(){
+ const el=document.getElementById("matchesList");
 
-      res.json({
-        ok: true,
-        matches:
-          result.rows
-      });
-    } catch (err) {
-      console.error(
-        "GET MATCHES ERROR:",
-        err
-      );
+ if(!matches.length){
+  el.innerHTML=`<div class="card empty">Hələ matç yoxdur.</div>`;
+  return;
+ }
 
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
+ const sorted=matches.slice().sort((a,b)=>{
+  return new Date(b.date||b.match_date||0)-new Date(a.date||a.match_date||0);
+ });
 
-app.post(
-  "/api/matches",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const homeTeamId =
-        nullableInt(
-          req.body.home_team_id !== undefined
-            ? req.body.home_team_id
-            : req.body.homeTeamId
-        );
-
-      const awayTeamId =
-        nullableInt(
-          req.body.away_team_id !== undefined
-            ? req.body.away_team_id
-            : req.body.awayTeamId
-        );
-
-      const homeScore =
-        intValue(
-          req.body.home_score !== undefined
-            ? req.body.home_score
-            : req.body.homeScore
-        );
-
-      const awayScore =
-        intValue(
-          req.body.away_score !== undefined
-            ? req.body.away_score
-            : req.body.awayScore
-        );
-
-      const status =
-        cleanString(
-          req.body.status
-        ) || "scheduled";
-
-      const matchDate =
-        req.body.match_date ||
-        req.body.matchDate ||
-        new Date().toISOString();
-
-      const venue =
-        cleanString(
-          req.body.venue
-        );
-
-      if (
-        !homeTeamId ||
-        !awayTeamId
-      ) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "İki komanda seçilməlidir"
-        });
-      }
-
-      if (
-        homeTeamId ===
-        awayTeamId
-      ) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Eyni komanda ilə matç yaratmaq olmaz"
-        });
-      }
-
-      const teams =
-        await query(
-          `
-            SELECT id
-            FROM teams
-            WHERE id = ANY($1)
-          `,
-          [[
-            homeTeamId,
-            awayTeamId
-          ]]
-        );
-
-      if (
-        teams.rows.length !== 2
-      ) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Seçilmiş komandalar tapılmadı"
-        });
-      }
-
-      const result =
-        await query(
-          `
-            INSERT INTO matches
-              (
-                home_team_id,
-                away_team_id,
-                home_score,
-                away_score,
-                status,
-                match_date,
-                venue
-              )
-            VALUES
-              ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING *
-          `,
-          [
-            homeTeamId,
-            awayTeamId,
-            homeScore,
-            awayScore,
-            status,
-            matchDate,
-            venue
-          ]
-        );
-
-      res.status(201).json({
-        ok: true,
-        match:
-          result.rows[0]
-      });
-    } catch (err) {
-      console.error(
-        "ADD MATCH ERROR:",
-        err
-      );
-
-      res.status(400).json({
-        ok: false,
-        error:
-          err.message ||
-          "Matç əlavə edilmədi"
-      });
-    }
-  }
-);
-
-async function updateMatch(
-  req,
-  res
-) {
-  try {
-    const id =
-      intValue(req.params.id);
-
-    const current =
-      await query(
-        `
-          SELECT *
-          FROM matches
-          WHERE id = $1
-        `,
-        [id]
-      );
-
-    if (!current.rows.length) {
-      return res.status(404).json({
-        ok: false,
-        error:
-          "Matç tapılmadı"
-      });
-    }
-
-    const old =
-      current.rows[0];
-
-    const homeTeamId =
-      req.body.home_team_id !== undefined
-        ? nullableInt(req.body.home_team_id)
-        : old.home_team_id;
-
-    const awayTeamId =
-      req.body.away_team_id !== undefined
-        ? nullableInt(req.body.away_team_id)
-        : old.away_team_id;
-
-    const homeScore =
-      req.body.home_score !== undefined
-        ? intValue(req.body.home_score)
-        : old.home_score;
-
-    const awayScore =
-      req.body.away_score !== undefined
-        ? intValue(req.body.away_score)
-        : old.away_score;
-
-    const status =
-      req.body.status !== undefined
-        ? cleanString(req.body.status)
-        : old.status;
-
-    const matchDate =
-      req.body.match_date !== undefined
-        ? req.body.match_date
-        : old.match_date;
-
-    const venue =
-      req.body.venue !== undefined
-        ? cleanString(req.body.venue)
-        : old.venue;
-
-    if (
-      homeTeamId &&
-      awayTeamId &&
-      homeTeamId === awayTeamId
-    ) {
-      return res.status(400).json({
-        ok: false,
-        error:
-          "Eyni komanda ilə matç yaratmaq olmaz"
-      });
-    }
-
-    const result =
-      await query(
-        `
-          UPDATE matches
-          SET
-            home_team_id = $1,
-            away_team_id = $2,
-            home_score = $3,
-            away_score = $4,
-            status = $5,
-            match_date = $6,
-            venue = $7
-          WHERE id = $8
-          RETURNING *
-        `,
-        [
-          homeTeamId,
-          awayTeamId,
-          homeScore,
-          awayScore,
-          status,
-          matchDate,
-          venue,
-          id
-        ]
-      );
-
-    res.json({
-      ok: true,
-      match:
-        result.rows[0]
-    });
-  } catch (err) {
-    console.error(
-      "UPDATE MATCH ERROR:",
-      err
-    );
-
-    res.status(400).json({
-      ok: false,
-      error: err.message
-    });
-  }
+ el.innerHTML=sorted.map(m=>matchMini(m)).join("");
 }
 
-app.put(
-  "/api/matches/:id",
-  requireAdmin,
-  updateMatch
-);
+async function openMatch(id){
+ currentMatchId=id;
+ showPage("matchDetail");
 
-app.patch(
-  "/api/matches/:id",
-  requireAdmin,
-  updateMatch
-);
+ const match=matches.find(m=>String(m.id)===String(id));
 
-app.delete(
-  "/api/matches/:id",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const id =
-        intValue(req.params.id);
+ if(!match){
+  document.getElementById("matchDetail").innerHTML=
+   `<div class="card">Matç tapılmadı.</div>`;
+  return;
+ }
 
-      await query(
-        `
-          DELETE FROM matches
-          WHERE id = $1
-        `,
-        [id]
-      );
+ const el=document.getElementById("matchDetail");
 
-      res.json({
-        ok: true
-      });
-    } catch (err) {
-      console.error(
-        "DELETE MATCH ERROR:",
-        err
-      );
+ el.innerHTML=`
+ <div class="match-card">
+  <div class="match-top">
+   <span>${esc(formatDate(match.date||match.match_date))}</span>
+   <span class="status ${statusClass(getMatchStatus(match))}">
+    ${statusText(getMatchStatus(match))}
+   </span>
+  </div>
 
-      res.status(400).json({
-        ok: false,
-        error: err.message
-      });
-    }
+  <div class="match-teams">
+   <div class="match-team">
+    <div class="team-logo">${teamLogo(teamById(getMatchHome(match)))}</div>
+    <span>${esc(teamName(getMatchHome(match)))}</span>
+   </div>
+
+   <div class="score">
+    ${getMatchStatus(match)==="scheduled"
+      ?"VS"
+      :`${getHomeScore(match)} : ${getAwayScore(match)}`}
+   </div>
+
+   <div class="match-team">
+    <div class="team-logo">${teamLogo(teamById(getMatchAway(match)))}</div>
+    <span>${esc(teamName(getMatchAway(match)))}</span>
+   </div>
+  </div>
+
+  <div style="text-align:center;margin-top:15px;color:#9fb0ca">
+   ${esc(match.venue||match.stadium||"")}
+  </div>
+ </div>
+
+ <div class="card" style="margin-top:16px">
+  <h2>📋 Hadisələr</h2>
+  <div id="matchEvents">Yüklənir...</div>
+ </div>
+ `;
+
+ await loadMatchEvents(id);
+}
+
+async function loadMatchEvents(matchId){
+ const el=document.getElementById("matchEvents");
+ if(!el)return;
+
+ try{
+  const data=await api(`/matches/${matchId}/events`);
+  currentEvents=Array.isArray(data)?data:(data.events||[]);
+
+  if(!currentEvents.length){
+   el.innerHTML=`<div class="empty">Hadisə yoxdur.</div>`;
+   return;
   }
-);
-
-/* =========================================================
-   MATCH EVENTS
-========================================================= */
-
-app.get(
-  "/api/matches/:matchId/events",
-  async (req, res) => {
-    try {
-      const matchId =
-        intValue(req.params.matchId);
-
-      const result =
-        await query(
-          `
-            SELECT
-              e.*,
-              p.name AS player_name,
-              p.photo AS player_photo,
-              p.number AS player_number,
-              p.position AS player_position,
-              t.name AS team_name,
-              t.logo AS team_logo
-            FROM match_events e
-            LEFT JOIN players p
-              ON p.id = e.player_id
-            LEFT JOIN teams t
-              ON t.id = e.team_id
-            WHERE e.match_id = $1
-            ORDER BY
-              e.minute ASC,
-              e.id ASC
-          `,
-          [matchId]
-        );
-
-      res.json({
-        ok: true,
-        events:
-          result.rows
-      });
-    } catch (err) {
-      console.error(
-        "GET EVENTS ERROR:",
-        err
-      );
-
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-/* =========================================================
-   ADD EVENT
-========================================================= */
-
-app.post(
-  "/api/matches/:matchId/events",
-  requireAdmin,
-  async (req, res) => {
-    const client =
-      await pool.connect();
-
-    try {
-      const matchId =
-        intValue(
-          req.params.matchId
-        );
-
-      const type =
-        cleanString(
-          req.body.type
-        ).toLowerCase();
-
-      const playerId =
-        nullableInt(
-          req.body.player_id !== undefined
-            ? req.body.player_id
-            : req.body.playerId
-        );
-
-      let teamId =
-        nullableInt(
-          req.body.team_id !== undefined
-            ? req.body.team_id
-            : req.body.teamId
-        );
-
-      const minute =
-        intValue(
-          req.body.minute
-        );
-
-      const note =
-        cleanString(
-          req.body.note
-        );
-
-      const allowedTypes = [
-        "goal",
-        "assist",
-        "save",
-        "yellow",
-        "red"
-      ];
-
-      if (
-        !allowedTypes.includes(type)
-      ) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Yanlış hadisə tipi"
-        });
-      }
-
-      await client.query("BEGIN");
-
-      const matchResult =
-        await client.query(
-          `
-            SELECT *
-            FROM matches
-            WHERE id = $1
-            FOR UPDATE
-          `,
-          [matchId]
-        );
-
-      if (!matchResult.rows.length) {
-        throw new Error(
-          "Matç tapılmadı"
-        );
-      }
-
-      const match =
-        matchResult.rows[0];
-
-      /*
-        Əgər frontend komandanı göndərməyibsə,
-        oyunçunun komandasını avtomatik götürürük.
-      */
-      if (
-        !teamId &&
-        playerId
-      ) {
-        const playerResult =
-          await client.query(
-            `
-              SELECT team_id
-              FROM players
-              WHERE id = $1
-            `,
-            [playerId]
-          );
-
-        if (
-          playerResult.rows.length
-        ) {
-          teamId =
-            playerResult.rows[0]
-              .team_id;
-        }
-      }
-
-      if (!teamId) {
-        throw new Error(
-          "Komanda seçilməlidir"
-        );
-      }
-
-      if (
-        Number(teamId) !==
-          Number(
-            match.home_team_id
-          ) &&
-        Number(teamId) !==
-          Number(
-            match.away_team_id
-          )
-      ) {
-        throw new Error(
-          "Bu komanda bu matçda iştirak etmir"
-        );
-      }
-
-      if (playerId) {
-        const playerResult =
-          await client.query(
-            `
-              SELECT *
-              FROM players
-              WHERE id = $1
-            `,
-            [playerId]
-          );
-
-        if (
-          !playerResult.rows.length
-        ) {
-          throw new Error(
-            "Oyunçu tapılmadı"
-          );
-        }
-
-        const player =
-          playerResult.rows[0];
-
-        if (
-          Number(player.team_id) !==
-          Number(teamId)
-        ) {
-          throw new Error(
-            "Oyunçu seçilən komandaya aid deyil"
-          );
-        }
-      }
-
-      const eventResult =
-        await client.query(
-          `
-            INSERT INTO match_events
-              (
-                match_id,
-                team_id,
-                player_id,
-                type,
-                minute,
-                note
-              )
-            VALUES
-              ($1, $2, $3, $4, $5, $6)
-            RETURNING *
-          `,
-          [
-            matchId,
-            teamId,
-            playerId,
-            type,
-            minute,
-            note
-          ]
-        );
-
-      const event =
-        eventResult.rows[0];
-
-      const statColumn =
-        eventStatColumn(type);
-
-      if (
-        statColumn &&
-        playerId
-      ) {
-        await client.query(
-          `
-            UPDATE players
-            SET ${statColumn} =
-              COALESCE(
-                ${statColumn},
-                0
-              ) + 1
-            WHERE id = $1
-          `,
-          [playerId]
-        );
-      }
-
-      let updatedMatch =
-        match;
-
-      if (type === "goal") {
-        const homeIncrement =
-          Number(teamId) ===
-          Number(
-            match.home_team_id
-          )
-            ? 1
-            : 0;
-
-        const awayIncrement =
-          Number(teamId) ===
-          Number(
-            match.away_team_id
-          )
-            ? 1
-            : 0;
-
-        const scoreResult =
-          await client.query(
-            `
-              UPDATE matches
-              SET
-                home_score =
-                  home_score + $1,
-                away_score =
-                  away_score + $2
-              WHERE id = $3
-              RETURNING *
-            `,
-            [
-              homeIncrement,
-              awayIncrement,
-              matchId
-            ]
-          );
-
-        updatedMatch =
-          scoreResult.rows[0];
-      }
-
-      await client.query("COMMIT");
-
-      let notificationTitle =
-        "AliScore";
-
-      let notificationBody =
-        "Yeni hadisə";
-
-      if (type === "goal") {
-        notificationTitle =
-          "⚽ QOL!";
-
-        notificationBody =
-          "Matçda yeni qol!";
-      }
-
-      if (type === "assist") {
-        notificationTitle =
-          "🎯 Assist";
-
-        notificationBody =
-          "Yeni assist qeydə alındı.";
-      }
-
-      if (type === "save") {
-        notificationTitle =
-          "🧤 Seyv";
-
-        notificationBody =
-          "Yeni seyv qeydə alındı.";
-      }
-
-      if (type === "yellow") {
-        notificationTitle =
-          "🟨 Sarı kart";
-
-        notificationBody =
-          "Oyunçu sarı kart aldı.";
-      }
-
-      if (type === "red") {
-        notificationTitle =
-          "🟥 Qırmızı kart";
-
-        notificationBody =
-          "Oyunçu qırmızı kart aldı.";
-      }
-
-      /*
-        Artıq bütün hadisələr üçün
-        notification yaradılır.
-      */
-      await notify(
-        type,
-        notificationTitle,
-        notificationBody,
-        {
-          matchId,
-          eventId: event.id,
-          playerId,
-          teamId
-        }
-      );
-
-      const fullEventResult =
-        await query(
-          `
-            SELECT
-              e.*,
-              p.name AS player_name,
-              p.photo AS player_photo,
-              p.number AS player_number,
-              p.position AS player_position,
-              t.name AS team_name,
-              t.logo AS team_logo
-            FROM match_events e
-            LEFT JOIN players p
-              ON p.id = e.player_id
-            LEFT JOIN teams t
-              ON t.id = e.team_id
-            WHERE e.id = $1
-          `,
-          [event.id]
-        );
-
-      res.status(201).json({
-        ok: true,
-        event:
-          fullEventResult.rows[0],
-        match:
-          updatedMatch
-      });
-    } catch (err) {
-      try {
-        await client.query(
-          "ROLLBACK"
-        );
-      } catch (_) {}
-
-      console.error(
-        "ADD EVENT ERROR:",
-        err
-      );
-
-      res.status(400).json({
-        ok: false,
-        error:
-          err.message ||
-          "Hadisə əlavə edilmədi"
-      });
-    } finally {
-      client.release();
-    }
-  }
-);
-
-/* =========================================================
-   UPDATE EVENT
-========================================================= */
-
-app.patch(
-  "/api/matches/:matchId/events/:eventId",
-  requireAdmin,
-  async (req, res) => {
-    const client =
-      await pool.connect();
-
-    try {
-      const matchId =
-        intValue(
-          req.params.matchId
-        );
-
-      const eventId =
-        intValue(
-          req.params.eventId
-        );
-
-      await client.query("BEGIN");
-
-      const matchResult =
-        await client.query(
-          `
-            SELECT *
-            FROM matches
-            WHERE id = $1
-            FOR UPDATE
-          `,
-          [matchId]
-        );
-
-      if (
-        !matchResult.rows.length
-      ) {
-        throw new Error(
-          "Matç tapılmadı"
-        );
-      }
-
-      const match =
-        matchResult.rows[0];
-
-      const oldResult =
-        await client.query(
-          `
-            SELECT *
-            FROM match_events
-            WHERE id = $1
-              AND match_id = $2
-            FOR UPDATE
-          `,
-          [
-            eventId,
-            matchId
-          ]
-        );
-
-      if (
-        !oldResult.rows.length
-      ) {
-        throw new Error(
-          "Hadisə tapılmadı"
-        );
-      }
-
-      const oldEvent =
-        oldResult.rows[0];
-
-      const type =
-        req.body.type !== undefined
-          ? cleanString(req.body.type).toLowerCase()
-          : oldEvent.type;
-
-      const playerId =
-        req.body.player_id !== undefined
-          ? nullableInt(req.body.player_id)
-          : oldEvent.player_id;
-
-      let teamId =
-        req.body.team_id !== undefined
-          ? nullableInt(req.body.team_id)
-          : oldEvent.team_id;
-
-      const minute =
-        req.body.minute !== undefined
-          ? intValue(req.body.minute)
-          : oldEvent.minute;
-
-      const note =
-        req.body.note !== undefined
-          ? cleanString(req.body.note)
-          : oldEvent.note;
-
-      const allowedTypes = [
-        "goal",
-        "assist",
-        "save",
-        "yellow",
-        "red"
-      ];
-
-      if (
-        !allowedTypes.includes(type)
-      ) {
-        throw new Error(
-          "Yanlış hadisə tipi"
-        );
-      }
-
-      if (
-        !teamId &&
-        playerId
-      ) {
-        const p =
-          await client.query(
-            `
-              SELECT team_id
-              FROM players
-              WHERE id = $1
-            `,
-            [playerId]
-          );
-
-        if (p.rows.length) {
-          teamId =
-            p.rows[0].team_id;
-        }
-      }
-
-      if (!teamId) {
-        throw new Error(
-          "Komanda seçilməlidir"
-        );
-      }
-
-      if (
-        Number(teamId) !==
-          Number(
-            match.home_team_id
-          ) &&
-        Number(teamId) !==
-          Number(
-            match.away_team_id
-          )
-      ) {
-        throw new Error(
-          "Bu komanda bu matçda iştirak etmir"
-        );
-      }
-
-      if (playerId) {
-        const p =
-          await client.query(
-            `
-              SELECT *
-              FROM players
-              WHERE id = $1
-            `,
-            [playerId]
-          );
-
-        if (!p.rows.length) {
-          throw new Error(
-            "Oyunçu tapılmadı"
-          );
-        }
-
-        if (
-          Number(
-            p.rows[0].team_id
-          ) !==
-          Number(teamId)
-        ) {
-          throw new Error(
-            "Oyunçu seçilən komandaya aid deyil"
-          );
-        }
-      }
-
-      /* Remove old stat */
-
-      const oldStat =
-        eventStatColumn(
-          oldEvent.type
-        );
-
-      if (
-        oldStat &&
-        oldEvent.player_id
-      ) {
-        await client.query(
-          `
-            UPDATE players
-            SET ${oldStat} =
-              GREATEST(
-                COALESCE(
-                  ${oldStat},
-                  0
-                ) - 1,
-                0
-              )
-            WHERE id = $1
-          `,
-          [
-            oldEvent.player_id
-          ]
-        );
-      }
-
-      /* Remove old goal */
-
-      if (
-        oldEvent.type === "goal"
-      ) {
-        const oldHome =
-          Number(
-            oldEvent.team_id
-          ) ===
-          Number(
-            match.home_team_id
-          )
-            ? 1
-            : 0;
-
-        const oldAway =
-          Number(
-            oldEvent.team_id
-          ) ===
-          Number(
-            match.away_team_id
-          )
-            ? 1
-            : 0;
-
-        await client.query(
-          `
-            UPDATE matches
-            SET
-              home_score =
-                GREATEST(
-                  home_score - $1,
-                  0
-                ),
-              away_score =
-                GREATEST(
-                  away_score - $2,
-                  0
-                )
-            WHERE id = $3
-          `,
-          [
-            oldHome,
-            oldAway,
-            matchId
-          ]
-        );
-      }
-
-      const updatedResult =
-        await client.query(
-          `
-            UPDATE match_events
-            SET
-              team_id = $1,
-              player_id = $2,
-              type = $3,
-              minute = $4,
-              note = $5
-            WHERE id = $6
-              AND match_id = $7
-            RETURNING *
-          `,
-          [
-            teamId,
-            playerId,
-            type,
-            minute,
-            note,
-            eventId,
-            matchId
-          ]
-        );
-
-      const updatedEvent =
-        updatedResult.rows[0];
-
-      /* Add new stat */
-
-      const newStat =
-        eventStatColumn(type);
-
-      if (
-        newStat &&
-        playerId
-      ) {
-        await client.query(
-          `
-            UPDATE players
-            SET ${newStat} =
-              COALESCE(
-                ${newStat},
-                0
-              ) + 1
-            WHERE id = $1
-          `,
-          [playerId]
-        );
-      }
-
-      /* Add new goal */
-
-      if (type === "goal") {
-        const homeAdd =
-          Number(teamId) ===
-          Number(
-            match.home_team_id
-          )
-            ? 1
-            : 0;
-
-        const awayAdd =
-          Number(teamId) ===
-          Number(
-            match.away_team_id
-          )
-            ? 1
-            : 0;
-
-        await client.query(
-          `
-            UPDATE matches
-            SET
-              home_score =
-                home_score + $1,
-              away_score =
-                away_score + $2
-            WHERE id = $3
-          `,
-          [
-            homeAdd,
-            awayAdd,
-            matchId
-          ]
-        );
-      }
-
-      const finalMatchResult =
-        await client.query(
-          `
-            SELECT *
-            FROM matches
-            WHERE id = $1
-          `,
-          [matchId]
-        );
-
-      await client.query("COMMIT");
-
-      const fullEventResult =
-        await query(
-          `
-            SELECT
-              e.*,
-              p.name AS player_name,
-              p.photo AS player_photo,
-              p.number AS player_number,
-              p.position AS player_position,
-              t.name AS team_name,
-              t.logo AS team_logo
-            FROM match_events e
-            LEFT JOIN players p
-              ON p.id = e.player_id
-            LEFT JOIN teams t
-              ON t.id = e.team_id
-            WHERE e.id = $1
-          `,
-          [eventId]
-        );
-
-      res.json({
-        ok: true,
-        event:
-          fullEventResult.rows[0],
-        match:
-          finalMatchResult.rows[0]
-      });
-    } catch (err) {
-      try {
-        await client.query(
-          "ROLLBACK"
-        );
-      } catch (_) {}
-
-      console.error(
-        "UPDATE EVENT ERROR:",
-        err
-      );
-
-      res.status(400).json({
-        ok: false,
-        error:
-          err.message
-      });
-    } finally {
-      client.release();
-    }
-  }
-);
-
-/* =========================================================
-   DELETE EVENT
-========================================================= */
-
-app.delete(
-  "/api/matches/:matchId/events/:eventId",
-  requireAdmin,
-  async (req, res) => {
-    const client =
-      await pool.connect();
-
-    try {
-      const matchId =
-        intValue(
-          req.params.matchId
-        );
-
-      const eventId =
-        intValue(
-          req.params.eventId
-        );
-
-      await client.query("BEGIN");
-
-      const matchResult =
-        await client.query(
-          `
-            SELECT *
-            FROM matches
-            WHERE id = $1
-            FOR UPDATE
-          `,
-          [matchId]
-        );
-
-      if (
-        !matchResult.rows.length
-      ) {
-        throw new Error(
-          "Matç tapılmadı"
-        );
-      }
-
-      const eventResult =
-        await client.query(
-          `
-            SELECT *
-            FROM match_events
-            WHERE id = $1
-              AND match_id = $2
-            FOR UPDATE
-          `,
-          [
-            eventId,
-            matchId
-          ]
-        );
-
-      if (
-        !eventResult.rows.length
-      ) {
-        throw new Error(
-          "Hadisə tapılmadı"
-        );
-      }
-
-      const event =
-        eventResult.rows[0];
-
-      const stat =
-        eventStatColumn(
-          event.type
-        );
-
-      if (
-        stat &&
-        event.player_id
-      ) {
-        await client.query(
-          `
-            UPDATE players
-            SET ${stat} =
-              GREATEST(
-                COALESCE(
-                  ${stat},
-                  0
-                ) - 1,
-                0
-              )
-            WHERE id = $1
-          `,
-          [event.player_id]
-        );
-      }
-
-      if (
-        event.type === "goal"
-      ) {
-        const match =
-          matchResult.rows[0];
-
-        const home =
-          Number(
-            event.team_id
-          ) ===
-          Number(
-            match.home_team_id
-          )
-            ? 1
-            : 0;
-
-        const away =
-          Number(
-            event.team_id
-          ) ===
-          Number(
-            match.away_team_id
-          )
-            ? 1
-            : 0;
-
-        await client.query(
-          `
-            UPDATE matches
-            SET
-              home_score =
-                GREATEST(
-                  home_score - $1,
-                  0
-                ),
-              away_score =
-                GREATEST(
-                  away_score - $2,
-                  0
-                )
-            WHERE id = $3
-          `,
-          [
-            home,
-            away,
-            matchId
-          ]
-        );
-      }
-
-      await client.query(
-        `
-          DELETE FROM match_events
-          WHERE id = $1
-            AND match_id = $2
-        `,
-        [
-          eventId,
-          matchId
-        ]
-      );
-
-      const updatedMatch =
-        await client.query(
-          `
-            SELECT *
-            FROM matches
-            WHERE id = $1
-          `,
-          [matchId]
-        );
-
-      await client.query("COMMIT");
-
-      res.json({
-        ok: true,
-        deleted_event_id:
-          eventId,
-        match:
-          updatedMatch.rows[0]
-      });
-    } catch (err) {
-      try {
-        await client.query(
-          "ROLLBACK"
-        );
-      } catch (_) {}
-
-      console.error(
-        "DELETE EVENT ERROR:",
-        err
-      );
-
-      res.status(400).json({
-        ok: false,
-        error:
-          err.message
-      });
-    } finally {
-      client.release();
-    }
-  }
-);
-
-/* =========================================================
+
+  el.innerHTML=currentEvents.map(eventHTML).join("");
+
+ }catch(err){
+  el.innerHTML=`<div class="empty">${esc(err.message)}</div>`;
+ }
+}
+
+function eventHTML(e){
+ let icon="⚽";
+
+ if(e.type==="yellow"||e.type==="yellow_card")icon="🟨";
+ if(e.type==="red"||e.type==="red_card")icon="🟥";
+ if(e.type==="assist")icon="🎯";
+ if(e.type==="save")icon="🧤";
+
+ const pid=e.player_id??e.playerId;
+
+ return `
+ <div class="event">
+  <div class="event-icon">${icon}</div>
+  <div style="flex:1">
+   <b>${esc(playerName(pid)||e.player_name||"Oyunçu")}</b>
+   <div class="small muted">
+    ${esc(e.minute?e.minute+"′ ":"")}
+    ${esc(e.description||e.type||"")}
+   </div>
+  </div>
+
+  ${isAdmin?`
+   <button class="btn btn-danger" onclick="deleteEvent('${esc(currentMatchId)}','${esc(e.id)}')">
+    Sil
+   </button>`:""}
+ </div>`;
+}
+
+async function deleteEvent(matchId,eventId){
+ if(!isAdmin)return;
+
+ if(!confirm("Bu hadisəni silmək istəyirsiniz?"))return;
+
+ try{
+  await api(`/matches/${matchId}/events/${eventId}`,{
+   method:"DELETE"
+  });
+
+  toast("Hadisə silindi.");
+  await loadMatchEvents(matchId);
+  await loadAll();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+
+/* =========================
+   TABLE
+========================= */
+
+function renderTable(){
+ const body=document.getElementById("tableBody");
+
+ const table=teams.map(t=>{
+  const id=t.id;
+
+  let played=0,wins=0,draws=0,losses=0,gf=0,ga=0;
+
+  matches.forEach(m=>{
+   if(getMatchStatus(m)!=="finished")return;
+
+   const home=getMatchHome(m);
+   const away=getMatchAway(m);
+
+   if(String(home)!==String(id)&&String(away)!==String(id))return;
+
+   played++;
+
+   const hs=getHomeScore(m);
+   const as=getAwayScore(m);
+
+   if(String(home)===String(id)){
+    gf+=hs;
+    ga+=as;
+
+    if(hs>as)wins++;
+    else if(hs===as)draws++;
+    else losses++;
+   }else{
+    gf+=as;
+    ga+=hs;
+
+    if(as>hs)wins++;
+    else if(as===hs)draws++;
+    else losses++;
+   }
+  });
+
+  const manualPoints=t.points??t.xal??t.manual_points;
+
+  const points=manualPoints!==undefined&&manualPoints!==null
+   ?Number(manualPoints)
+   :wins*3+draws;
+
+  const gd=gf-ga;
+
+  return {
+   team:t,
+   played,
+   wins,
+   draws,
+   losses,
+   gf,
+   ga,
+   gd,
+   points
+  };
+ }).sort((a,b)=>
+  b.points-a.points||
+  b.gd-a.gd||
+  b.gf-a.gf
+ );
+
+ body.innerHTML=table.map((x,i)=>`
+  <tr>
+   <td><b>${i+1}</b></td>
+   <td>
+    <div class="team-row">
+     <div class="team-logo">${teamLogo(x.team)}</div>
+     <b>${esc(x.team.name||x.team.team_name)}</b>
+    </div>
+   </td>
+   <td>${x.played}</td>
+   <td>${x.wins}</td>
+   <td>${x.draws}</td>
+   <td>${x.losses}</td>
+   <td>${x.gf}</td>
+   <td>${x.ga}</td>
+   <td>${x.gd}</td>
+   <td><b>${x.points}</b></td>
+  </tr>
+ `).join("");
+}
+
+
+/* =========================
+   TEAMS
+========================= */
+
+function renderTeams(){
+ const el=document.getElementById("teamsList");
+
+ if(!teams.length){
+  el.innerHTML=`<div class="card empty">Komanda yoxdur.</div>`;
+  return;
+ }
+
+ el.innerHTML=teams.map(t=>`
+  <div class="card">
+   <div class="team-row">
+    <div class="team-logo" style="width:55px;height:55px">
+     ${teamLogo(t)}
+    </div>
+    <div>
+     <div style="font-size:18px;font-weight:900">
+      ${esc(t.name||t.team_name)}
+     </div>
+     <div class="muted small">
+      ${players.filter(p=>String(getPlayerTeam(p))===String(t.id)).length} oyunçu
+     </div>
+    </div>
+   </div>
+  </div>
+ `).join("");
+}
+
+
+/* =========================
+   PLAYERS
+========================= */
+
+function renderPlayers(){
+ const el=document.getElementById("playersList");
+
+ if(!players.length){
+  el.innerHTML=`<div class="card empty">Oyunçu yoxdur.</div>`;
+  return;
+ }
+
+ el.innerHTML=players.map(p=>`
+  <div class="card">
+   <div class="player-card">
+    <div class="avatar">${playerPhoto(p)}</div>
+
+    <div style="flex:1">
+     <div class="player-name">
+      ${esc(p.name)}
+     </div>
+
+     <div class="player-meta">
+      #${esc(p.number??p.player_number??"—")}
+      · ${esc(p.position||"—")}
+     </div>
+
+     <div class="player-meta">
+      ${esc(teamName(getPlayerTeam(p)))}
+     </div>
+    </div>
+   </div>
+  </div>
+ `).join("");
+}
+
+
+/* =========================
+   STATS
+========================= */
+
+function renderStats(){
+ const body=document.getElementById("statsBody");
+
+ const rows=players.map(p=>{
+  const s=stats.find(x=>
+   String(x.player_id??x.playerId)===String(p.id)
+  )||{};
+
+  return {
+   p,
+   goals:Number(s.goals||0),
+   assists:Number(s.assists||0),
+   saves:Number(s.saves||0)
+  };
+ }).sort((a,b)=>b.goals-a.goals||b.assists-a.assists);
+
+ body.innerHTML=rows.map((x,i)=>`
+  <tr>
+   <td>${i+1}</td>
+   <td>
+    <div class="player-card">
+     <div class="avatar">${playerPhoto(x.p)}</div>
+     <b>${esc(x.p.name)}</b>
+    </div>
+   </td>
+   <td>${esc(teamName(getPlayerTeam(x.p)))}</td>
+   <td><b>${x.goals}</b></td>
+   <td>${x.assists}</td>
+   <td>${x.saves}</td>
+  </tr>
+ `).join("");
+}
+
+
+/* =========================
    CARDS
-========================================================= */
-
-app.get(
-  "/api/cards",
-  async (req, res) => {
-    try {
-      const result =
-        await query(`
-          SELECT
-            p.id,
-            p.name,
-            p.photo,
-            p.yellow_cards,
-            p.red_cards,
-            p.team_id,
-            t.name AS team_name
-          FROM players p
-          LEFT JOIN teams t
-            ON t.id = p.team_id
-          ORDER BY
-            p.yellow_cards DESC,
-            p.red_cards DESC,
-            p.name ASC
-        `);
-
-      res.json({
-        ok: true,
-        cards:
-          result.rows
-      });
-    } catch (err) {
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-app.post(
-  "/api/cards/change",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const playerId =
-        intValue(
-          req.body.player_id
-        );
-
-      const card =
-        cleanString(
-          req.body.card
-        );
-
-      const delta =
-        intValue(
-          req.body.delta,
-          1
-        );
-
-      if (
-        !playerId ||
-        ![
-          "yellow",
-          "red"
-        ].includes(card)
-      ) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Yanlış kart məlumatı"
-        });
-      }
-
-      const column =
-        card === "yellow"
-          ? "yellow_cards"
-          : "red_cards";
-
-      const result =
-        await query(
-          `
-            UPDATE players
-            SET ${column} =
-              GREATEST(
-                COALESCE(
-                  ${column},
-                  0
-                ) + $1,
-                0
-              )
-            WHERE id = $2
-            RETURNING *
-          `,
-          [
-            delta,
-            playerId
-          ]
-        );
-
-      if (!result.rows.length) {
-        return res.status(404).json({
-          ok: false,
-          error:
-            "Oyunçu tapılmadı"
-        });
-      }
-
-      if (delta > 0) {
-        await notify(
-          card,
-          card === "yellow"
-            ? "🟨 Sarı kart"
-            : "🟥 Qırmızı kart",
-          card === "yellow"
-            ? "Oyunçu sarı kart aldı."
-            : "Oyunçu qırmızı kart aldı.",
-          {
-            playerId,
-            card
-          }
-        );
-      }
-
-      res.json({
-        ok: true,
-        player:
-          result.rows[0]
-      });
-    } catch (err) {
-      res.status(400).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-/* =========================================================
-   STATISTICS
-========================================================= */
-
-app.get(
-  "/api/statistics",
-  async (req, res) => {
-    try {
-      const result =
-        await query(`
-          SELECT
-            p.*,
-            t.name AS team_name
-          FROM players p
-          LEFT JOIN teams t
-            ON t.id = p.team_id
-          ORDER BY
-            p.goals DESC,
-            p.assists DESC,
-            p.saves DESC,
-            p.name ASC
-        `);
-
-      res.json({
-        ok: true,
-        statistics:
-          result.rows
-      });
-    } catch (err) {
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-app.post(
-  "/api/statistics/change",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const playerId =
-        intValue(
-          req.body.player_id
-        );
-
-      const stat =
-        cleanString(
-          req.body.stat
-        );
-
-      const delta =
-        intValue(
-          req.body.delta,
-          1
-        );
-
-      const allowed = [
-        "goals",
-        "assists",
-        "saves"
-      ];
-
-      if (
-        !playerId ||
-        !allowed.includes(stat)
-      ) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Yanlış statistika"
-        });
-      }
-
-      const result =
-        await query(
-          `
-            UPDATE players
-            SET ${stat} =
-              GREATEST(
-                COALESCE(
-                  ${stat},
-                  0
-                ) + $1,
-                0
-              )
-            WHERE id = $2
-            RETURNING *
-          `,
-          [
-            delta,
-            playerId
-          ]
-        );
-
-      if (!result.rows.length) {
-        return res.status(404).json({
-          ok: false,
-          error:
-            "Oyunçu tapılmadı"
-        });
-      }
-
-      res.json({
-        ok: true,
-        player:
-          result.rows[0]
-      });
-    } catch (err) {
-      res.status(400).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-/* =========================================================
-   NOTIFICATIONS
-========================================================= */
-
-app.get(
-  "/api/notifications",
-  async (req, res) => {
-    try {
-      const result =
-        await query(`
-          SELECT *
-          FROM notifications
-          ORDER BY
-            created_at DESC,
-            id DESC
-          LIMIT 100
-        `);
-
-      res.json({
-        ok: true,
-        notifications:
-          result.rows
-      });
-    } catch (err) {
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-/* =========================================================
-   TRANSFERS
-========================================================= */
-
-app.get(
-  "/api/transfers",
-  async (req, res) => {
-    try {
-      const result =
-        await query(`
-          SELECT
-            tr.*,
-            p.name AS player_name,
-            p.photo AS player_photo,
-            ft.name AS from_team_name,
-            tt.name AS to_team_name
-          FROM transfers tr
-          LEFT JOIN players p
-            ON p.id = tr.player_id
-          LEFT JOIN teams ft
-            ON ft.id = tr.from_team_id
-          LEFT JOIN teams tt
-            ON tt.id = tr.to_team_id
-          ORDER BY
-            tr.created_at DESC,
-            tr.id DESC
-        `);
-
-      res.json({
-        ok: true,
-        transfers:
-          result.rows
-      });
-    } catch (err) {
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-app.post(
-  "/api/transfers",
-  requireAdmin,
-  async (req, res) => {
-    const client =
-      await pool.connect();
-
-    try {
-      const playerId =
-        intValue(
-          req.body.player_id
-        );
-
-      const toTeamId =
-        intValue(
-          req.body.to_team_id
-        );
-
-      const note =
-        cleanString(
-          req.body.note
-        );
-
-      if (!playerId || !toTeamId) {
-        throw new Error(
-          "Oyunçu və yeni komanda seçilməlidir"
-        );
-      }
-
-      await client.query("BEGIN");
-
-      const playerResult =
-        await client.query(
-          `
-            SELECT *
-            FROM players
-            WHERE id = $1
-            FOR UPDATE
-          `,
-          [playerId]
-        );
-
-      if (
-        !playerResult.rows.length
-      ) {
-        throw new Error(
-          "Oyunçu tapılmadı"
-        );
-      }
-
-      const player =
-        playerResult.rows[0];
-
-      if (
-        Number(player.team_id) ===
-        Number(toTeamId)
-      ) {
-        throw new Error(
-          "Oyunçu artıq bu komandadadır"
-        );
-      }
-
-      const teamResult =
-        await client.query(
-          `
-            SELECT *
-            FROM teams
-            WHERE id = $1
-          `,
-          [toTeamId]
-        );
-
-      if (
-        !teamResult.rows.length
-      ) {
-        throw new Error(
-          "Yeni komanda tapılmadı"
-        );
-      }
-
-      const fromTeamId =
-        player.team_id;
-
-      await client.query(
-        `
-          UPDATE players
-          SET team_id = $1
-          WHERE id = $2
-        `,
-        [
-          toTeamId,
-          playerId
-        ]
-      );
-
-      const transferResult =
-        await client.query(
-          `
-            INSERT INTO transfers
-              (
-                player_id,
-                from_team_id,
-                to_team_id,
-                note
-              )
-            VALUES
-              ($1, $2, $3, $4)
-            RETURNING *
-          `,
-          [
-            playerId,
-            fromTeamId,
-            toTeamId,
-            note
-          ]
-        );
-
-      await client.query("COMMIT");
-
-      await notify(
-        "transfer",
-        "🔄 Transfer",
-        `${player.name} yeni komandaya keçdi.`,
-        {
-          playerId,
-          fromTeamId,
-          toTeamId
-        }
-      );
-
-      res.json({
-        ok: true,
-        transfer:
-          transferResult.rows[0]
-      });
-    } catch (err) {
-      try {
-        await client.query(
-          "ROLLBACK"
-        );
-      } catch (_) {}
-
-      res.status(400).json({
-        ok: false,
-        error: err.message
-      });
-    } finally {
-      client.release();
-    }
-  }
-);
-
-/* =========================================================
-   TEAM OF THE WEEK
-========================================================= */
-
-app.get(
-  "/api/team-of-week",
-  async (req, res) => {
-    try {
-      const result =
-        await query(`
-          SELECT
-            tw.*,
-
-            gp.name AS goalkeeper_name,
-            gp.photo AS goalkeeper_photo,
-            gp.team_id AS goalkeeper_team_id,
-
-            dp.name AS defender_name,
-            dp.photo AS defender_photo,
-            dp.team_id AS defender_team_id,
-
-            mp.name AS midfielder_name,
-            mp.photo AS midfielder_photo,
-            mp.team_id AS midfielder_team_id,
-
-            ap.name AS attacker_name,
-            ap.photo AS attacker_photo,
-            ap.team_id AS attacker_team_id
-
-          FROM team_of_week tw
-
-          LEFT JOIN players gp
-            ON gp.id = tw.goalkeeper_id
-
-          LEFT JOIN players dp
-            ON dp.id = tw.defender_id
-
-          LEFT JOIN players mp
-            ON mp.id = tw.midfielder_id
-
-          LEFT JOIN players ap
-            ON ap.id = tw.attacker_id
-
-          ORDER BY
-            tw.created_at DESC,
-            tw.id DESC
-        `);
-
-      res.json({
-        ok: true,
-        teamOfWeek:
-          result.rows
-      });
-    } catch (err) {
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-app.post(
-  "/api/team-of-week",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const week =
-        cleanString(
-          req.body.week
-        ) ||
-        new Date()
-          .toISOString()
-          .slice(0, 10);
-
-      const goalkeeperId =
-        nullableInt(
-          req.body.goalkeeper_id
-        );
-
-      const defenderId =
-        nullableInt(
-          req.body.defender_id
-        );
-
-      const midfielderId =
-        nullableInt(
-          req.body.midfielder_id
-        );
-
-      const attackerId =
-        nullableInt(
-          req.body.attacker_id
-        );
-
-      if (
-        !goalkeeperId ||
-        !defenderId ||
-        !midfielderId ||
-        !attackerId
-      ) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Komanda həftəsi üçün bütün mövqelər seçilməlidir"
-        });
-      }
-
-      const result =
-        await query(
-          `
-            INSERT INTO team_of_week
-              (
-                week,
-                goalkeeper_id,
-                defender_id,
-                midfielder_id,
-                attacker_id
-              )
-            VALUES
-              ($1, $2, $3, $4, $5)
-            RETURNING *
-          `,
-          [
-            week,
-            goalkeeperId,
-            defenderId,
-            midfielderId,
-            attackerId
-          ]
-        );
-
-      await notify(
-        "team-of-week",
-        "⭐ Komanda həftəsi",
-        "Yeni Komanda həftəsi seçildi!",
-        {
-          id:
-            result.rows[0].id,
-          week
-        }
-      );
-
-      res.json({
-        ok: true,
-        teamOfWeek:
-          result.rows[0]
-      });
-    } catch (err) {
-      res.status(400).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-/* =========================================================
-   LINEUPS
-========================================================= */
-
-app.get(
-  "/api/lineups/:id",
-  async (req, res) => {
-    try {
-      const matchId =
-        intValue(
-          req.params.id
-        );
-
-      const result =
-        await query(
-          `
-            SELECT
-              l.*,
-              t.name AS team_name
-            FROM lineups l
-            LEFT JOIN teams t
-              ON t.id = l.team_id
-            WHERE l.match_id = $1
-            ORDER BY l.id ASC
-          `,
-          [matchId]
-        );
-
-      res.json({
-        ok: true,
-        lineups:
-          result.rows
-      });
-    } catch (err) {
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-/* =========================================================
-   PUSH
-========================================================= */
-
-app.get(
-  "/api/push/public-key",
-  (req, res) => {
-    res.json({
-      ok: true,
-      enabled:
-        pushEnabled,
-      publicKey:
-        VAPID_PUBLIC_KEY ||
-        null
-    });
-  }
-);
-
-app.post(
-  "/api/push/subscribe",
-  async (req, res) => {
-    try {
-      const subscription =
-        req.body.subscription ||
-        req.body;
-
-      if (
-        !subscription ||
-        !subscription.endpoint ||
-        !subscription.keys ||
-        !subscription.keys.p256dh ||
-        !subscription.keys.auth
-      ) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Invalid push subscription"
-        });
-      }
-
-      await query(
-        `
-          INSERT INTO push_subscriptions
-            (
-              endpoint,
-              p256dh,
-              auth
-            )
-          VALUES
-            ($1, $2, $3)
-          ON CONFLICT (endpoint)
-          DO UPDATE SET
-            p256dh =
-              EXCLUDED.p256dh,
-            auth =
-              EXCLUDED.auth
-        `,
-        [
-          subscription.endpoint,
-          subscription.keys.p256dh,
-          subscription.keys.auth
-        ]
-      );
-
-      res.json({
-        ok: true
-      });
-    } catch (err) {
-      res.status(400).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-app.post(
-  "/api/push/test",
-  requireAdmin,
-  async (req, res) => {
-    try {
-      await sendPush(
-        "AliScore",
-        "Push bildirişləri işləyir! ⚽",
-        {
-          test: true
-        }
-      );
-
-      res.json({
-        ok: true,
-        pushEnabled
-      });
-    } catch (err) {
-      res.status(500).json({
-        ok: false,
-        error: err.message
-      });
-    }
-  }
-);
-
-/* =========================================================
-   SERVICE WORKER
-========================================================= */
-
-app.get(
-  "/service-worker.js",
-  (req, res) => {
-    res.setHeader(
-      "Content-Type",
-      "application/javascript"
-    );
-
-    res.setHeader(
-      "Cache-Control",
-      "no-cache, no-store, must-revalidate"
-    );
-
-    res.send(`
-      self.addEventListener(
-        "install",
-        function(event) {
-          self.skipWaiting();
-        }
-      );
-
-      self.addEventListener(
-        "activate",
-        function(event) {
-          event.waitUntil(
-            self.clients.claim()
-          );
-        }
-      );
-
-      self.addEventListener(
-        "push",
-        function(event) {
-          let data = {};
-
-          try {
-            data = event.data
-              ? event.data.json()
-              : {};
-          } catch (e) {
-            data = {
-              title: "AliScore",
-              body: event.data
-                ? event.data.text()
-                : ""
-            };
-          }
-
-          const title =
-            data.title ||
-            "AliScore";
-
-          const options = {
-            body:
-              data.body ||
-              "Yeni bildiriş",
-            icon:
-              "/icon-192.png",
-            badge:
-              "/icon-192.png",
-            data:
-              data.data || {},
-            vibrate:
-              [200, 100, 200]
-          };
-
-          event.waitUntil(
-            self.registration
-              .showNotification(
-                title,
-                options
-              )
-          );
-        }
-      );
-
-      self.addEventListener(
-        "notificationclick",
-        function(event) {
-          event.notification.close();
-
-          event.waitUntil(
-            clients
-              .matchAll({
-                type: "window",
-                includeUncontrolled: true
-              })
-              .then(function(clientList) {
-                for (
-                  const client of
-                    clientList
-                ) {
-                  if (
-                    "focus" in client
-                  ) {
-                    return client.focus();
-                  }
-                }
-
-                if (
-                  clients.openWindow
-                ) {
-                  return clients.openWindow(
-                    "/"
-                  );
-                }
-              })
-          );
-        }
-      );
-    `);
-  }
-);
-
-/* =========================================================
-   UNKNOWN API
-========================================================= */
-
-app.use(
-  "/api",
-  (req, res) => {
-    res.status(404).json({
-      ok: false,
-      error:
-        "API route not found",
-      path: req.path
-    });
-  }
-);
-
-/* =========================================================
-   FRONTEND
-========================================================= */
-
-app.use(
-  express.static(
-    path.join(
-      __dirname,
-      "public"
-    )
-  )
-);
-
-app.use(
-  (req, res, next) => {
-    if (req.method !== "GET") {
-      return next();
-    }
-
-    res.sendFile(
-      path.join(
-        __dirname,
-        "public",
-        "index.html"
-      ),
-      (err) => {
-        if (err) {
-          next(err);
-        }
-      }
-    );
-  }
-);
-
-/* =========================================================
-   ERROR HANDLER
-========================================================= */
-
-app.use(
-  (err, req, res, next) => {
-    console.error(
-      "Unhandled server error:",
-      err
-    );
-
-    if (res.headersSent) {
-      return next(err);
-    }
-
-    res.status(500).json({
-      ok: false,
-      error:
-        err.message ||
-        "Server error"
-    });
-  }
-);
-
-/* =========================================================
-   START
-========================================================= */
-
-async function start() {
-  try {
-    await initDatabase();
-
-    app.listen(
-      PORT,
-      "0.0.0.0",
-      () => {
-        console.log(
-          `AliScore server running on port ${PORT}`
-        );
-      }
-    );
-  } catch (err) {
-    console.error(
-      "SERVER START ERROR:",
-      err
-    );
-
-    process.exit(1);
-  }
+========================= */
+
+function renderCards(){
+ const body=document.getElementById("cardsBody");
+
+ body.innerHTML=players.map(p=>{
+  const c=cards.find(x=>
+   String(x.player_id??x.playerId)===String(p.id)
+  )||{};
+
+  return `
+   <tr>
+    <td>
+     <div class="player-card">
+      <div class="avatar">${playerPhoto(p)}</div>
+      <b>${esc(p.name)}</b>
+     </div>
+    </td>
+
+    <td>${esc(teamName(getPlayerTeam(p)))}</td>
+
+    <td>
+     <span class="yellow"></span>
+     ${Number(c.yellow_cards??c.yellow||0)}
+    </td>
+
+    <td>
+     <span class="red"></span>
+     ${Number(c.red_cards??c.red||0)}
+    </td>
+   </tr>`;
+ }).join("");
 }
 
-start();
+
+/* =========================
+   LINEUPS
+========================= */
+
+function loadLineupMatches(){
+ const select=document.getElementById("lineupMatchSelect");
+
+ select.innerHTML=
+  `<option value="">Matç seçin</option>`+
+  matches.map(m=>`
+   <option value="${esc(m.id)}">
+    ${esc(teamName(getMatchHome(m)))} — ${esc(teamName(getMatchAway(m)))}
+   </option>
+  `).join("");
+}
+
+async function loadSelectedLineup(){
+ const id=document.getElementById("lineupMatchSelect").value;
+ const el=document.getElementById("lineupView");
+
+ if(!id){
+  el.innerHTML="";
+  return;
+ }
+
+ try{
+  const data=await api(`/lineups/${id}`);
+
+  const lineup=Array.isArray(data)
+   ?data
+   :(data.lineups||data.players||[]);
+
+  if(!lineup.length){
+   el.innerHTML=`<div class="empty">Heyət əlavə edilməyib.</div>`;
+   return;
+  }
+
+  el.innerHTML=lineup.map(p=>{
+   const player=playerById(p.player_id??p.playerId)||p;
+
+   return `
+    <div class="event">
+     <div class="avatar">${playerPhoto(player)}</div>
+     <div>
+      <b>${esc(player.name)}</b>
+      <div class="small muted">${esc(player.position||p.position||"")}</div>
+     </div>
+    </div>`;
+  }).join("");
+
+ }catch(err){
+  el.innerHTML=`<div class="empty">${esc(err.message)}</div>`;
+ }
+}
+
+
+/* =========================
+   TEAM OF WEEK
+========================= */
+
+function renderHomeWeek(){
+ const el=document.getElementById("homeWeek");
+
+ if(!teamOfWeek){
+  el.innerHTML=`<div class="empty">Komanda həftəsi hələ əlavə edilməyib.</div>`;
+  return;
+ }
+
+ const ids=getWeekIds(teamOfWeek);
+
+ if(!ids.length){
+  el.innerHTML=`<div class="empty">Komanda həftəsi hələ əlavə edilməyib.</div>`;
+  return;
+ }
+
+ el.innerHTML=`
+  <div class="grid3">
+   ${ids.map(id=>{
+    const p=playerById(id);
+    if(!p)return "";
+
+    return `
+     <div class="player-card">
+      <div class="avatar">${playerPhoto(p)}</div>
+      <div>
+       <b>${esc(p.name)}</b>
+       <div class="small muted">${esc(p.position||"")}</div>
+      </div>
+     </div>`;
+   }).join("")}
+  </div>`;
+}
+
+function getWeekIds(w){
+ if(!w)return [];
+
+ const possible=[
+  w.players,
+  w.player_ids,
+  w.playerIds
+ ];
+
+ for(const arr of possible){
+  if(Array.isArray(arr)){
+   return arr.map(x=>x?.id??x?.player_id??x).filter(Boolean);
+  }
+ }
+
+ return [
+  w.goalkeeper,
+  w.goalkeeper_id,
+  w.defender1,
+  w.defender1_id,
+  w.defender2,
+  w.defender2_id,
+  w.defender3,
+  w.defender3_id,
+  w.defender4,
+  w.defender4_id,
+  w.midfielder1,
+  w.midfielder1_id,
+  w.midfielder2,
+  w.midfielder2_id,
+  w.midfielder3,
+  w.midfielder3_id,
+  w.attacker1,
+  w.attacker1_id,
+  w.attacker2,
+  w.attacker2_id,
+  w.attacker3,
+  w.attacker3_id
+ ].filter(Boolean);
+}
+
+function renderWeek(){
+ const el=document.getElementById("weekPublic");
+
+ if(!teamOfWeek){
+  el.innerHTML=`<div class="empty">Komanda həftəsi hələ əlavə edilməyib.</div>`;
+  return;
+ }
+
+ const ids=getWeekIds(teamOfWeek);
+
+ el.innerHTML=`
+  <div class="grid3">
+   ${ids.map(id=>{
+    const p=playerById(id);
+    if(!p)return "";
+
+    return `
+     <div class="card">
+      <div class="player-card">
+       <div class="avatar">${playerPhoto(p)}</div>
+       <div>
+        <b>${esc(p.name)}</b>
+        <div class="small muted">
+         ${esc(p.position||"")}
+        </div>
+        <div class="small muted">
+         ${esc(teamName(getPlayerTeam(p)))}
+        </div>
+       </div>
+      </div>
+     </div>`;
+   }).join("")}
+  </div>`;
+}
+
+
+/* =========================
+   HIGHLIGHTS
+========================= */
+
+function renderHighlights(){
+ const el=document.getElementById("highlightsList");
+
+ let items=[];
+
+ try{
+  items=JSON.parse(localStorage.getItem("aliscore_highlights")||"[]");
+ }catch{
+  items=[];
+ }
+
+ if(!items.length){
+  el.innerHTML=`<div class="empty">Hələ Highlights yoxdur.</div>`;
+  return;
+ }
+
+ el.innerHTML=items.map((x,i)=>`
+  <div class="event">
+   <div class="event-icon">✨</div>
+   <div style="flex:1">
+    <b>${esc(x.title||"Highlights")}</b>
+    <div class="small muted">${esc(x.description||"")}</div>
+   </div>
+  </div>
+ `).join("");
+}
+
+
+/* =========================
+   TRANSFERS
+========================= */
+
+function renderTransfers(){
+ const el=document.getElementById("transfersList");
+
+ if(!transfers.length){
+  el.innerHTML=`<div class="empty">Hələ transfer yoxdur.</div>`;
+  return;
+ }
+
+ el.innerHTML=transfers.slice().reverse().map(t=>{
+  const player=playerById(t.player_id??t.playerId);
+
+  return `
+   <div class="event">
+    <div class="event-icon">🔄</div>
+
+    <div style="flex:1">
+     <b>${esc(player?.name||t.player_name||"Oyunçu")}</b>
+
+     <div class="small muted">
+      ${esc(teamName(t.from_team_id??t.fromTeamId)||t.from_team_name||"—")}
+      →
+      ${esc(teamName(t.to_team_id??t.toTeamId)||t.to_team_name||"—")}
+     </div>
+
+     <div class="small muted">
+      ${esc(formatDate(t.created_at||t.date))}
+     </div>
+    </div>
+   </div>`;
+ }).join("");
+}
+
+
+/* =========================
+   ADMIN AUTH
+========================= */
+
+async function renderAdmin(){
+ const loginBox=document.getElementById("adminLoginBox");
+ const panel=document.getElementById("adminPanel");
+
+ try{
+  const res=await fetch("/api/admin/me",{
+   method:"GET",
+   credentials:"include",
+   headers:{
+    "Accept":"application/json"
+   }
+  });
+
+  if(!res.ok){
+   throw new Error("Admin Login required");
+  }
+
+  const text=await res.text();
+
+  let data={};
+
+  try{
+   data=text?JSON.parse(text):{};
+  }catch{}
+
+  /*
+   /admin/me müxtəlif server versiyalarında
+   fərqli JSON qaytara bilər. Əsas yoxlama HTTP 200-dür.
+  */
+  isAdmin=true;
+
+  loginBox.classList.add("hidden");
+  panel.classList.remove("hidden");
+
+  await loadAdminData();
+
+ }catch(err){
+  isAdmin=false;
+
+  loginBox.classList.remove("hidden");
+  panel.classList.add("hidden");
+ }
+}
+
+
+async function adminLogin(){
+ const input=document.getElementById("adminPassword");
+ const error=document.getElementById("loginError");
+
+ const password=input.value.trim();
+
+ error.textContent="";
+
+ if(!password){
+  error.textContent="Şifrəni daxil edin.";
+  return;
+ }
+
+ try{
+
+  /*
+   Vacib:
+   credentials:"include" admin cookie-sinin
+   brauzerdə saxlanması üçün lazımdır.
+  */
+  const res=await fetch("/api/admin/login",{
+   method:"POST",
+   credentials:"include",
+   headers:{
+    "Content-Type":"application/json",
+    "Accept":"application/json"
+   },
+   body:JSON.stringify({password})
+  });
+
+  const text=await res.text();
+
+  let data={};
+
+  try{
+   data=text?JSON.parse(text):{};
+  }catch{
+   data={raw:text};
+  }
+
+  if(!res.ok){
+   throw new Error(
+    data.error||
+    data.message||
+    data.raw||
+    `HTTP ${res.status}`
+   );
+  }
+
+  /*
+   Login-dən sonra cookie həqiqətən yaradılıb-yaradılmadığını
+   /admin/me ilə yoxlayırıq.
+  */
+  const meRes=await fetch("/api/admin/me",{
+   method:"GET",
+   credentials:"include",
+   headers:{
+    "Accept":"application/json"
+   }
+  });
+
+  const meText=await meRes.text();
+
+  let me={};
+
+  try{
+   me=meText?JSON.parse(meText):{};
+  }catch{}
+
+  if(!meRes.ok){
+   throw new Error(
+    me.error||
+    me.message||
+    "Admin sessiyası yaradılmadı."
+   );
+  }
+
+  isAdmin=true;
+
+  input.value="";
+  error.textContent="";
+
+  toast("Admin giriş uğurludur ✓");
+
+  document.getElementById("adminLoginBox").classList.add("hidden");
+  document.getElementById("adminPanel").classList.remove("hidden");
+
+  await loadAdminData();
+
+ }catch(err){
+
+  isAdmin=false;
+
+  error.textContent=err.message||"Admin giriş uğursuz oldu.";
+
+  console.error("ADMIN LOGIN:",err);
+ }
+}
+
+
+async function adminLogout(){
+ try{
+  await api("/admin/logout",{
+   method:"POST"
+  });
+ }catch{}
+
+ isAdmin=false;
+
+ document.getElementById("adminPanel").classList.add("hidden");
+ document.getElementById("adminLoginBox").classList.remove("hidden");
+
+ toast("Admin hesabından çıxıldı.");
+}
+
+
+/* =========================
+   ADMIN DATA
+========================= */
+
+async function loadAdminData(){
+ await Promise.all([
+  loadTeams(),
+  loadPlayers(),
+  loadMatches(),
+  loadStatistics(),
+  loadCards(),
+  loadTransfers(),
+  loadTeamOfWeek()
+ ]);
+
+ fillTeamSelects();
+ renderAdminTeams();
+ renderAdminPlayers();
+ renderAdminMatches();
+ fillWeekSelects();
+ renderHomeWeek();
+ updateHomeNumbers();
+}
+
+
+/* =========================
+   ADMIN TEAM
+========================= */
+
+function fillTeamSelects(){
+ const selects=[
+  "playerTeam",
+  "matchHome",
+  "matchAway"
+ ];
+
+ selects.forEach(id=>{
+  const el=document.getElementById(id);
+  if(!el)return;
+
+  const old=el.value;
+
+  el.innerHTML=
+   `<option value="">Seçin</option>`+
+   teams.map(t=>`
+    <option value="${esc(t.id)}">
+     ${esc(t.name||t.team_name)}
+    </option>
+   `).join("");
+
+  if(old)el.value=old;
+ });
+}
+
+async function addTeam(){
+ if(!isAdmin){
+  alert("Admin Login required");
+  return;
+ }
+
+ const name=document.getElementById("teamName").value.trim();
+ const logo=document.getElementById("teamLogo").value.trim();
+
+ if(!name){
+  alert("Komanda adı daxil edin.");
+  return;
+ }
+
+ try{
+  await api("/teams",{
+   method:"POST",
+   body:JSON.stringify({
+    name,
+    logo,
+    logo_url:logo
+   })
+  });
+
+  document.getElementById("teamName").value="";
+  document.getElementById("teamLogo").value="";
+
+  toast("Komanda əlavə edildi.");
+  await loadAdminData();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+function renderAdminTeams(){
+ const el=document.getElementById("adminTeams");
+
+ if(!teams.length){
+  el.innerHTML=`<div class="empty">Komanda yoxdur.</div>`;
+  return;
+ }
+
+ el.innerHTML=teams.map(t=>`
+  <div class="event">
+   <div class="team-logo">${teamLogo(t)}</div>
+
+   <div style="flex:1">
+    <b>${esc(t.name||t.team_name)}</b>
+    <div class="small muted">
+     Xal: ${Number(t.points??t.xal??0)}
+    </div>
+   </div>
+
+   <div class="btn-row">
+    <button class="btn" onclick="editTeam('${esc(t.id)}')">Redaktə</button>
+    <button class="btn btn-danger" onclick="deleteTeam('${esc(t.id)}')">Sil</button>
+   </div>
+  </div>
+ `).join("");
+}
+
+async function editTeam(id){
+ const t=teamById(id);
+ if(!t)return;
+
+ document.getElementById("modalTitle").textContent="Komandanı redaktə et";
+
+ document.getElementById("modalBody").innerHTML=`
+  <div class="form-group">
+   <label>Komanda adı</label>
+   <input id="editTeamName" value="${esc(t.name||t.team_name||"")}">
+  </div>
+
+  <div class="form-group">
+   <label>Logo URL</label>
+   <input id="editTeamLogo" value="${esc(t.logo||t.logo_url||"")}">
+  </div>
+
+  <div class="form-group">
+   <label>Xal</label>
+   <input id="editTeamPoints" type="number" value="${Number(t.points??t.xal??0)}">
+  </div>
+
+  <div class="form-grid">
+   <div>
+    <label>GF</label>
+    <input id="editTeamGF" type="number" value="${Number(t.gf??0)}">
+   </div>
+
+   <div>
+    <label>GA</label>
+    <input id="editTeamGA" type="number" value="${Number(t.ga??0)}">
+   </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="saveTeamEdit('${esc(id)}')">
+   Yadda saxla
+  </button>
+ `;
+
+ openModal();
+}
+
+async function saveTeamEdit(id){
+ try{
+  await api(`/teams/${id}`,{
+   method:"PATCH",
+   body:JSON.stringify({
+    name:document.getElementById("editTeamName").value.trim(),
+    logo:document.getElementById("editTeamLogo").value.trim(),
+    logo_url:document.getElementById("editTeamLogo").value.trim(),
+    points:Number(document.getElementById("editTeamPoints").value||0),
+    gf:Number(document.getElementById("editTeamGF").value||0),
+    ga:Number(document.getElementById("editTeamGA").value||0)
+   })
+  });
+
+  closeModal();
+  toast("Komanda yeniləndi.");
+  await loadAdminData();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+async function deleteTeam(id){
+ if(!confirm("Bu komandanı silmək istəyirsiniz?"))return;
+
+ try{
+  await api(`/teams/${id}`,{
+   method:"DELETE"
+  });
+
+  toast("Komanda silindi.");
+  await loadAdminData();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+
+/* =========================
+   ADMIN PLAYERS
+========================= */
+
+async function addPlayer(){
+ if(!isAdmin){
+  alert("Admin Login required");
+  return;
+ }
+
+ const name=document.getElementById("playerName").value.trim();
+ const team_id=document.getElementById("playerTeam").value;
+ const number=document.getElementById("playerNumber").value;
+ const position=document.getElementById("playerPosition").value;
+ const photo=document.getElementById("playerPhoto").value.trim();
+
+ if(!name||!team_id){
+  alert("Ad və komanda daxil edin.");
+  return;
+ }
+
+ try{
+  await api("/players",{
+   method:"POST",
+   body:JSON.stringify({
+    name,
+    team_id,
+    number:Number(number||0),
+    player_number:Number(number||0),
+    position,
+    photo,
+    photo_url:photo
+   })
+  });
+
+  document.getElementById("playerName").value="";
+  document.getElementById("playerNumber").value="";
+  document.getElementById("playerPhoto").value="";
+
+  toast("Oyunçu əlavə edildi.");
+  await loadAdminData();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+function renderAdminPlayers(){
+ const el=document.getElementById("adminPlayers");
+
+ if(!players.length){
+  el.innerHTML=`<div class="empty">Oyunçu yoxdur.</div>`;
+  return;
+ }
+
+ el.innerHTML=players.map(p=>`
+  <div class="event">
+   <div class="avatar">${playerPhoto(p)}</div>
+
+   <div style="flex:1">
+    <b>${esc(p.name)}</b>
+    <div class="small muted">
+     #${esc(p.number??p.player_number??"—")}
+     · ${esc(p.position||"—")}
+     · ${esc(teamName(getPlayerTeam(p)))}
+    </div>
+   </div>
+
+   <div class="btn-row">
+    <button class="btn" onclick="editPlayer('${esc(p.id)}')">Redaktə</button>
+    <button class="btn btn-danger" onclick="deletePlayer('${esc(p.id)}')">Sil</button>
+   </div>
+  </div>
+ `).join("");
+}
+
+async function editPlayer(id){
+ const p=playerById(id);
+ if(!p)return;
+
+ document.getElementById("modalTitle").textContent="Oyunçunu redaktə et";
+
+ document.getElementById("modalBody").innerHTML=`
+  <div class="form-group">
+   <label>Ad</label>
+   <input id="editPlayerName" value="${esc(p.name||"")}">
+  </div>
+
+  <div class="form-group">
+   <label>Komanda</label>
+   <select id="editPlayerTeam">
+    ${teams.map(t=>`
+     <option value="${esc(t.id)}"
+      ${String(getPlayerTeam(p))===String(t.id)?"selected":""}>
+      ${esc(t.name||t.team_name)}
+     </option>
+    `).join("")}
+   </select>
+  </div>
+
+  <div class="form-grid">
+   <div>
+    <label>Nömrə</label>
+    <input id="editPlayerNumber" type="number"
+     value="${Number(p.number??p.player_number??0)}">
+   </div>
+
+   <div>
+    <label>Mövqe</label>
+    <select id="editPlayerPosition">
+     ${["Qapıçı","Müdafiə","Yarımmüdafiə","Hücum"].map(x=>`
+      <option ${String(p.position)===x?"selected":""}>${x}</option>
+     `).join("")}
+    </select>
+   </div>
+  </div>
+
+  <div class="form-group">
+   <label>Foto URL</label>
+   <input id="editPlayerPhoto"
+    value="${esc(p.photo||p.photo_url||"")}">
+  </div>
+
+  <button class="btn btn-primary" onclick="savePlayerEdit('${esc(id)}')">
+   Yadda saxla
+  </button>
+ `;
+
+ openModal();
+}
+
+async function savePlayerEdit(id){
+ try{
+  const photo=document.getElementById("editPlayerPhoto").value.trim();
+
+  await api(`/players/${id}`,{
+   method:"PATCH",
+   body:JSON.stringify({
+    name:document.getElementById("editPlayerName").value.trim(),
+    team_id:document.getElementById("editPlayerTeam").value,
+    number:Number(document.getElementById("editPlayerNumber").value||0),
+    player_number:Number(document.getElementById("editPlayerNumber").value||0),
+    position:document.getElementById("editPlayerPosition").value,
+    photo,
+    photo_url:photo
+   })
+  });
+
+  closeModal();
+  toast("Oyunçu yeniləndi.");
+  await loadAdminData();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+async function deletePlayer(id){
+ if(!confirm("Bu oyunçunu silmək istəyirsiniz?"))return;
+
+ try{
+  await api(`/players/${id}`,{
+   method:"DELETE"
+  });
+
+  toast("Oyunçu silindi.");
+  await loadAdminData();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+
+/* =========================
+   ADMIN MATCHES
+========================= */
+
+async function addMatch(){
+ if(!isAdmin){
+  alert("Admin Login required");
+  return;
+ }
+
+ const home_team_id=document.getElementById("matchHome").value;
+ const away_team_id=document.getElementById("matchAway").value;
+ const date=document.getElementById("matchDate").value;
+ const status=document.getElementById("matchStatus").value;
+ const home_score=Number(document.getElementById("matchHomeScore").value||0);
+ const away_score=Number(document.getElementById("matchAwayScore").value||0);
+ const venue=document.getElementById("matchVenue").value.trim();
+
+ if(!home_team_id||!away_team_id){
+  alert("İki komanda seçin.");
+  return;
+ }
+
+ if(home_team_id===away_team_id){
+  alert("Eyni komanda ilə oynamaq olmaz.");
+  return;
+ }
+
+ try{
+  await api("/matches",{
+   method:"POST",
+   body:JSON.stringify({
+    home_team_id,
+    away_team_id,
+    date,
+    match_date:date,
+    status,
+    home_score,
+    away_score,
+    venue
+   })
+  });
+
+  toast("Matç əlavə edildi.");
+  await loadAdminData();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+function renderAdminMatches(){
+ const el=document.getElementById("adminMatches");
+
+ if(!matches.length){
+  el.innerHTML=`<div class="empty">Matç yoxdur.</div>`;
+  return;
+ }
+
+ el.innerHTML=matches.map(m=>`
+  <div class="event">
+   <div style="flex:1">
+    <b>
+     ${esc(teamName(getMatchHome(m)))}
+     ${getHomeScore(m)}:${getAwayScore(m)}
+     ${esc(teamName(getMatchAway(m)))}
+    </b>
+
+    <div class="small muted">
+     ${esc(formatDate(m.date||m.match_date))}
+     · ${statusText(getMatchStatus(m))}
+    </div>
+   </div>
+
+   <div class="btn-row">
+    <button class="btn" onclick="editMatch('${esc(m.id)}')">Redaktə</button>
+    <button class="btn btn-danger" onclick="deleteMatch('${esc(m.id)}')">Sil</button>
+   </div>
+  </div>
+ `).join("");
+}
+
+async function editMatch(id){
+ const m=matches.find(x=>String(x.id)===String(id));
+ if(!m)return;
+
+ document.getElementById("modalTitle").textContent="Matçı redaktə et";
+
+ const dateValue=(m.date||m.match_date||"").slice(0,16);
+
+ document.getElementById("modalBody").innerHTML=`
+  <div class="form-grid">
+   <div>
+    <label>Ev sahibi</label>
+    <select id="editMatchHome">
+     ${teams.map(t=>`
+      <option value="${esc(t.id)}"
+       ${String(getMatchHome(m))===String(t.id)?"selected":""}>
+       ${esc(t.name||t.team_name)}
+      </option>
+     `).join("")}
+    </select>
+   </div>
+
+   <div>
+    <label>Qonaq</label>
+    <select id="editMatchAway">
+     ${teams.map(t=>`
+      <option value="${esc(t.id)}"
+       ${String(getMatchAway(m))===String(t.id)?"selected":""}>
+       ${esc(t.name||t.team_name)}
+      </option>
+     `).join("")}
+    </select>
+   </div>
+  </div>
+
+  <div class="form-group">
+   <label>Tarix</label>
+   <input id="editMatchDate" type="datetime-local"
+    value="${esc(dateValue)}">
+  </div>
+
+  <div class="form-grid">
+   <div>
+    <label>Ev qolları</label>
+    <input id="editMatchHomeScore" type="number"
+     value="${getHomeScore(m)}">
+   </div>
+
+   <div>
+    <label>Qonaq qolları</label>
+    <input id="editMatchAwayScore" type="number"
+     value="${getAwayScore(m)}">
+   </div>
+  </div>
+
+  <div class="form-group">
+   <label>Status</label>
+   <select id="editMatchStatus">
+    <option value="scheduled" ${getMatchStatus(m)==="scheduled"?"selected":""}>Planlaşdırılıb</option>
+    <option value="live" ${getMatchStatus(m)==="live"?"selected":""}>Canlı</option>
+    <option value="finished" ${getMatchStatus(m)==="finished"?"selected":""}>Bitib</option>
+   </select>
+  </div>
+
+  <div class="form-group">
+   <label>Məkan</label>
+   <input id="editMatchVenue"
+    value="${esc(m.venue||m.stadium||"")}">
+  </div>
+
+  <button class="btn btn-primary" onclick="saveMatchEdit('${esc(id)}')">
+   Yadda saxla
+  </button>
+
+  <hr style="border-color:var(--line);margin:20px 0">
+
+  <h3>Hadisə əlavə et</h3>
+
+  <div class="form-group">
+   <label>Oyunçu</label>
+   <select id="eventPlayer">
+    ${players.map(p=>`
+     <option value="${esc(p.id)}">${esc(p.name)}</option>
+    `).join("")}
+   </select>
+  </div>
+
+  <div class="form-grid">
+   <div>
+    <label>Hadisə</label>
+    <select id="eventType">
+     <option value="goal">⚽ Qol</option>
+     <option value="assist">🎯 Assist</option>
+     <option value="save">🧤 Seyv</option>
+     <option value="yellow">🟨 Sarı kart</option>
+     <option value="red">🟥 Qırmızı kart</option>
+    </select>
+   </div>
+
+   <div>
+    <label>Dəqiqə</label>
+    <input id="eventMinute" type="number" min="0">
+   </div>
+  </div>
+
+  <button class="btn btn-success" onclick="addMatchEvent('${esc(id)}')">
+   Hadisəni əlavə et
+  </button>
+ `;
+
+ openModal();
+}
+
+async function saveMatchEdit(id){
+ try{
+  await api(`/matches/${id}`,{
+   method:"PATCH",
+   body:JSON.stringify({
+    home_team_id:document.getElementById("editMatchHome").value,
+    away_team_id:document.getElementById("editMatchAway").value,
+    date:document.getElementById("editMatchDate").value,
+    match_date:document.getElementById("editMatchDate").value,
+    home_score:Number(document.getElementById("editMatchHomeScore").value||0),
+    away_score:Number(document.getElementById("editMatchAwayScore").value||0),
+    status:document.getElementById("editMatchStatus").value,
+    venue:document.getElementById("editMatchVenue").value.trim()
+   })
+  });
+
+  toast("Matç yeniləndi.");
+  await loadAdminData();
+  closeModal();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+async function deleteMatch(id){
+ if(!confirm("Bu matçı silmək istəyirsiniz?"))return;
+
+ try{
+  await api(`/matches/${id}`,{
+   method:"DELETE"
+  });
+
+  toast("Matç silindi.");
+  await loadAdminData();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+async function addMatchEvent(matchId){
+ try{
+  await api(`/matches/${matchId}/events`,{
+   method:"POST",
+   body:JSON.stringify({
+    player_id:document.getElementById("eventPlayer").value,
+    type:document.getElementById("eventType").value,
+    minute:Number(document.getElementById("eventMinute").value||0)
+   })
+  });
+
+  toast("Hadisə əlavə edildi.");
+
+  if(currentMatchId===matchId){
+   await loadMatchEvents(matchId);
+  }
+
+  closeModal();
+  await loadAdminData();
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+
+/* =========================
+   TEAM OF WEEK ADMIN
+========================= */
+
+function fillWeekSelects(){
+ const ids=[
+  "weekGoalkeeper",
+  "weekDefender1",
+  "weekDefender2",
+  "weekDefender3",
+  "weekDefender4",
+  "weekMidfielder1",
+  "weekMidfielder2",
+  "weekMidfielder3",
+  "weekAttacker1",
+  "weekAttacker2",
+  "weekAttacker3"
+ ];
+
+ const positions={
+  weekGoalkeeper:"Qapıçı",
+  weekDefender1:"Müdafiə",
+  weekDefender2:"Müdafiə",
+  weekDefender3:"Müdafiə",
+  weekDefender4:"Müdafiə",
+  weekMidfielder1:"Yarımmüdafiə",
+  weekMidfielder2:"Yarımmüdafiə",
+  weekMidfielder3:"Yarımmüdafiə",
+  weekAttacker1:"Hücum",
+  weekAttacker2:"Hücum",
+  weekAttacker3:"Hücum"
+ };
+
+ ids.forEach(id=>{
+  const el=document.getElementById(id);
+  if(!el)return;
+
+  const pos=positions[id];
+
+  const filtered=players.filter(p=>{
+   const ppos=String(p.position||"").toLowerCase();
+   const wanted=pos.toLowerCase();
+
+   if(pos==="Qapıçı")return ppos.includes("qap");
+   if(pos==="Müdafiə")return ppos.includes("müdafi");
+   if(pos==="Yarımmüdafiə")return ppos.includes("yarım");
+   if(pos==="Hücum")return ppos.includes("hücum");
+
+   return true;
+  });
+
+  el.innerHTML=
+   `<option value="">Seçin</option>`+
+   filtered.map(p=>`
+    <option value="${esc(p.id)}">${esc(p.name)} — ${esc(teamName(getPlayerTeam(p)))}</option>
+   `).join("");
+ });
+
+ if(teamOfWeek){
+  const ids=getWeekIds(teamOfWeek);
+
+  const names=[
+   "weekGoalkeeper",
+   "weekDefender1",
+   "weekDefender2",
+   "weekDefender3",
+   "weekDefender4",
+   "weekMidfielder1",
+   "weekMidfielder2",
+   "weekMidfielder3",
+   "weekAttacker1",
+   "weekAttacker2",
+   "weekAttacker3"
+  ];
+
+  names.forEach((id,index)=>{
+   const el=document.getElementById(id);
+   if(el&&ids[index])el.value=ids[index];
+  });
+ }
+}
+
+async function saveTeamOfWeek(){
+ if(!isAdmin){
+  alert("Admin Login required");
+  return;
+ }
+
+ const ids=[
+  "weekGoalkeeper",
+  "weekDefender1",
+  "weekDefender2",
+  "weekDefender3",
+  "weekDefender4",
+  "weekMidfielder1",
+  "weekMidfielder2",
+  "weekMidfielder3",
+  "weekAttacker1",
+  "weekAttacker2",
+  "weekAttacker3"
+ ].map(id=>document.getElementById(id).value).filter(Boolean);
+
+ if(ids.length!==11){
+  alert("Komanda həftəsində 11 oyunçu seçilməlidir.");
+  return;
+ }
+
+ if(new Set(ids).size!==11){
+  alert("Eyni oyunçunu iki dəfə seçmək olmaz.");
+  return;
+ }
+
+ try{
+  await api("/team-of-week",{
+   method:"POST",
+   body:JSON.stringify({
+    players:ids,
+    player_ids:ids,
+    goalkeeper:ids[0],
+    defenders:ids.slice(1,5),
+    midfielders:ids.slice(5,8),
+    attackers:ids.slice(8,11)
+   })
+  });
+
+  await loadTeamOfWeek();
+  renderWeek();
+  renderHomeWeek();
+
+  toast("Komanda həftəsi yadda saxlanıldı ⭐");
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+
+/* =========================
+   PUSH NOTIFICATIONS
+========================= */
+
+async function enableNotifications(){
+ const status=document.getElementById("notificationStatus");
+
+ if(!("Notification" in window)){
+  status.textContent="Bu brauzer bildirişləri dəstəkləmir.";
+  return;
+ }
+
+ try{
+  const permission=await Notification.requestPermission();
+
+  if(permission!=="granted"){
+   status.textContent="Bildiriş icazəsi verilmədi.";
+   return;
+  }
+
+  if(!("serviceWorker" in navigator)){
+   status.textContent="Service Worker dəstəklənmir.";
+   return;
+  }
+
+  const registration=await navigator.serviceWorker.register("/service-worker.js");
+
+  const keyData=await api("/push/public-key");
+
+  const publicKey=
+   keyData.publicKey||
+   keyData.key||
+   keyData.vapidPublicKey;
+
+  if(!publicKey){
+   status.textContent="Push public key tapılmadı.";
+   return;
+  }
+
+  const subscription=await registration.pushManager.subscribe({
+   userVisibleOnly:true,
+   applicationServerKey:urlBase64ToUint8Array(publicKey)
+  });
+
+  await api("/push/subscribe",{
+   method:"POST",
+   body:JSON.stringify(subscription)
+  });
+
+  status.textContent="Bildirişlər aktivdir ✓";
+  toast("Bildirişlər aktiv edildi.");
+
+ }catch(err){
+  console.error(err);
+  status.textContent="Bildiriş xətası: "+err.message;
+ }
+}
+
+function urlBase64ToUint8Array(base64String){
+ const padding="=".repeat((4-base64String.length%4)%4);
+ const base64=(base64String+padding)
+  .replace(/-/g,"+")
+  .replace(/_/g,"/");
+
+ const rawData=atob(base64);
+ const outputArray=new Uint8Array(rawData.length);
+
+ for(let i=0;i<rawData.length;++i){
+  outputArray[i]=rawData.charCodeAt(i);
+ }
+
+ return outputArray;
+}
+
+async function testNotification(){
+ try{
+  await api("/push/test",{
+   method:"POST"
+  });
+
+  toast("Test bildirişi göndərildi.");
+
+ }catch(err){
+  alert(err.message);
+ }
+}
+
+
+/* =========================
+   MODAL
+========================= */
+
+function openModal(){
+ document.getElementById("modal").classList.add("show");
+}
+
+function closeModal(){
+ document.getElementById("modal").classList.remove("show");
+}
+
+document.getElementById("modal").addEventListener("click",e=>{
+ if(e.target.id==="modal")closeModal();
+});
+
+
+/* =========================
+   KEYBOARD
+========================= */
+
+document.getElementById("adminPassword").addEventListener("keydown",e=>{
+ if(e.key==="Enter"){
+  adminLogin();
+ }
+});
+
+
+/* =========================
+   SERVICE WORKER
+========================= */
+
+if("serviceWorker" in navigator){
+ window.addEventListener("load",()=>{
+  navigator.serviceWorker.register("/service-worker.js")
+   .catch(err=>console.warn("Service Worker:",err));
+ });
+}
+
+
+/* =========================
+   START
+========================= */
+
+(async function init(){
+
+ await loadAll();
+
+ showPage("home");
+
+})();
+</script>
+
+</body>
+</html>
